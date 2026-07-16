@@ -125,7 +125,7 @@ function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 const getP=id=>state.prospects.find(p=>p.id===id);
 
 function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,montantPlace:0,
-  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null,historique:[],dateRdv:null,dateRenouvellement:null};}
+  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null,historique:[],dateRdv:null};}
 
 /* ================= Logique métier ================= */
 const HICON={appel:"📞",sms:"💬",email:"✉️",relance:"🔁",contact:"✅",statut:"🏷️",rdv:"📆",note:"📝"};
@@ -139,11 +139,6 @@ function setStatut(p,s){
   if(s==="client"||s==="perdu")p.prochaineRelance=null;
   logH(p,"statut","→ "+STATUTS[s].lbl);
   save();
-}
-function renouvDue(p){
-  if(p.statut!=="client"||!p.dateRenouvellement)return false;
-  const lim=new Date();lim.setDate(lim.getDate()+30);
-  return parseD(p.dateRenouvellement)<=lim;
 }
 function relanceDue(p){return p.prochaineRelance&&EN_COURS.includes(p.statut)&&p.prochaineRelance<=todayISO();}
 function faireRelance(p){
@@ -197,10 +192,10 @@ function download(name,content,mime){
   setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},400);
 }
 function exportCSV(){
-  const heads=["Prénom","Nom","Société","Téléphone","Email","Statut","Produits","Prime mensuelle ($ CA)","Montant placé ($ CA)","Relances","Prochaine relance","Dernier contact","Créé le","Date de gain","RDV","Renouvellement","Notes"];
+  const heads=["Prénom","Nom","Société","Téléphone","Email","Statut","Produits","Prime mensuelle ($ CA)","Montant placé ($ CA)","Relances","Prochaine relance","Dernier contact","Créé le","Date de gain","RDV","Notes"];
   const rows=state.prospects.map(p=>[p.prenom,p.nom,p.societe,p.tel,p.email,STATUTS[p.statut].lbl,
     p.produits.join(", "),p.prime||0,p.montantPlace||0,p.relances||0,p.prochaineRelance||"",
-    p.dernierContact||"",p.dateCreation||"",p.dateGain||"",p.dateRdv||"",p.dateRenouvellement||"",
+    p.dernierContact||"",p.dateCreation||"",p.dateGain||"",p.dateRdv||"",
     (p.notes||"").replace(/\s+/g," ")]);
   const csv="\uFEFF"+[heads,...rows].map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
   download("csf-prospect-"+todayISO()+".csv",csv,"text/csv;charset=utf-8");
@@ -253,12 +248,6 @@ function icsRdv(p){
     (p.societe||"")+" — "+(p.tel||"")+" — "+(p.email||""),fmtDT(d),fmtDT(e),["-P1D","-PT2H","PT0S"]);
   logH(p,"rdv","RDV ajouté au Calendrier ("+d.toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+")");
 }
-function icsRenouv(p){
-  if(!p.dateRenouvellement)return;
-  const dt=p.dateRenouvellement.replace(/-/g,"");
-  icsGen("renouvellement-"+(p.nom||"client")+".ics","Renouvellement : "+fullName(p),
-    "Renouvellement de police — "+(p.tel||""),dt+"T090000",dt+"T093000",["-P7D","-P1D","PT0S"]);
-}
 /* ================= Router ================= */
 let route={view:"list",id:null,edit:null};
 let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false};
@@ -285,7 +274,6 @@ function pItem(p,due){
       <div class="muted">${esc(p.societe||prod||"")}</div>
       ${due?`<div class="muted" style="color:var(--red);font-weight:600">Relance due le ${fmtDate(p.prochaineRelance)} · ${p.relances||0}/3</div>`
         :(p.prochaineRelance?`<div class="muted">Relance le ${fmtDate(p.prochaineRelance)}</div>`:"")}
-      ${renouvDue(p)?`<div class="muted" style="color:var(--orange);font-weight:600">Renouvellement le ${fmtDate(p.dateRenouvellement)}</div>`:""}
     </div>
     <div class="right">
       ${montantsHTML(p)}
@@ -315,19 +303,14 @@ function listZone(){
   const dues=state.prospects.filter(relanceDue).filter(match)
     .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
   const dueIds=new Set(dues.map(p=>p.id));
-  const rens=state.prospects.filter(p=>renouvDue(p)&&!dueIds.has(p.id)).filter(match)
-    .sort((a,b)=>a.dateRenouvellement<b.dateRenouvellement?-1:1);
-  const renIds=new Set(rens.map(p=>p.id));
-  const ps=state.prospects.filter(match).filter(p=>!dueIds.has(p.id)&&!renIds.has(p.id))
+  const ps=state.prospects.filter(match).filter(p=>!dueIds.has(p.id))
     .sort((a,b)=>fullName(a).localeCompare(fullName(b),"fr"));
   let h="";
   if(dues.length)h+=`<h2 style="color:var(--red)">🔔 Relances à faire (${dues.length})</h2>
     <div class="plist">${dues.map(p=>pItem(p,true)).join("")}</div>`;
-  if(rens.length)h+=`<h2 style="color:var(--orange)">🔁 Renouvellements à venir (${rens.length})</h2>
-    <div class="plist">${rens.map(p=>pItem(p,false)).join("")}</div>`;
-  h+=(dues.length||rens.length)?`<h2>Tous les prospects</h2>`:"";
-  h+=ps.length?`<div class="plist" style="margin-top:${(dues.length||rens.length)?0:14}px">${ps.map(p=>pItem(p,false)).join("")}</div>`
-    :((dues.length||rens.length)?"":`<div class="empty">Aucun prospect${ui.search||ui.filtre!=="tous"?" ne correspond à la recherche":""}.<br><br>Touchez <b>+</b> pour ajouter votre premier prospect.</div>`);
+  h+=dues.length?`<h2>Tous les prospects</h2>`:"";
+  h+=ps.length?`<div class="plist" style="margin-top:${dues.length?0:14}px">${ps.map(p=>pItem(p,false)).join("")}</div>`
+    :(dues.length?"":`<div class="empty">Aucun prospect${ui.search||ui.filtre!=="tous"?" ne correspond à la recherche":""}.<br><br>Touchez <b>+</b> pour ajouter votre premier prospect.</div>`);
   return h;
 }
 function refreshList(){
@@ -438,13 +421,6 @@ function viewDetail(){
     <label class="field"><span class="lbl">Date et heure du RDV</span>
       <input type="datetime-local" value="${p.dateRdv||""}" onchange="getP('${p.id}').dateRdv=this.value||null;save();render()"></label>
     ${p.dateRdv?`<button class="sec small" style="width:100%" onclick="icsRdv(getP('${p.id}'));render()">📅 Ajouter le RDV au Calendrier (.ics)</button>`:""}
-  </div>`:""}
-  ${p.statut==="client"?`<h2>Renouvellement de police</h2>
-  <div class="card">
-    ${renouvDue(p)?`<div class="warn" style="margin-top:0">🔁 Renouvellement ${p.dateRenouvellement<todayISO()?"<b>dépassé</b>":"à venir"} : ${fmtDate(p.dateRenouvellement)}</div>`:""}
-    <label class="field"><span class="lbl">Date de renouvellement de la police</span>
-      <input type="date" value="${p.dateRenouvellement||""}" onchange="getP('${p.id}').dateRenouvellement=this.value||null;save();render()"></label>
-    ${p.dateRenouvellement?`<button class="sec small" style="width:100%" onclick="icsRenouv(getP('${p.id}'))">📅 Rappel au Calendrier (.ics)</button>`:""}
   </div>`:""}
   <h2>Coordonnées & infos</h2>
   <div class="card">
