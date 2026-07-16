@@ -609,15 +609,15 @@ function viewVentes(){
   const buckets=[];
   for(let i=n-1;i>=0;i--){
     const s=bucketStart(mode,i),e=bucketStart(mode,i-1);
-    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0,place:0});
+    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0,place:0,com:0});
   }
   const ventes=state.prospects.filter(p=>p.statut==="client"&&p.dateGain);
-  let totM=0,totN=0,totPl=0;
+  let totM=0,totN=0,totPl=0,totCom=0;
   for(const p of ventes){
     const g=parseD(p.dateGain);
-    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.place+=(+p.montantPlace||0);b.nombre++;totM+=(+p.prime||0);totPl+=(+p.montantPlace||0);totN++;break;}
+    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.place+=(+p.montantPlace||0);b.com+=commission(p);b.nombre++;totM+=(+p.prime||0);totPl+=(+p.montantPlace||0);totCom+=commission(p);totN++;break;}
   }
-  const vals=buckets.map(b=>metric==="montant"?b.montant:metric==="place"?b.place:b.nombre);
+  const vals=buckets.map(b=>metric==="montant"?b.montant:metric==="place"?b.place:metric==="com"?b.com:b.nombre);
   const max=Math.max(...vals,1);
   const showEvery=Math.ceil(buckets.length/8);
   const bars=buckets.map((b,i)=>{
@@ -628,7 +628,20 @@ function viewVentes(){
       <div class="barlbl">${i%showEvery===0||i===buckets.length-1?b.lbl:""}</div>
     </div>`;}).join("");
   const modeLbls={semaine:"Semaine",mois:"Mois",annee:"Année"};
+  const st=stats();
+  const totCombine=st.comGagne+st.comPot;
+  const pctCom=totCombine?Math.round(st.comGagne/totCombine*100):0;
   return `<h1>Ventes</h1>
+  <h2 style="margin-top:2px">Commissions — total global</h2>
+  <div class="statgrid" style="margin-bottom:6px">
+    <div class="card" style="margin:0"><div class="muted">✅ Déjà touchées</div><div class="big" style="color:var(--green)">${money(st.comGagne)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">⏳ Potentielles à gagner</div><div class="big" style="color:var(--accent)">${money(st.comPot)}</div></div>
+  </div>
+  <div class="card">
+    <div class="progress" style="height:12px"><div style="width:${pctCom}%"></div></div>
+    <div class="muted" style="margin-top:7px">${money(st.comGagne)} touchées sur ${money(totCombine)} en jeu (${pctCom} %)</div>
+  </div>
+  <h2>Graphique des ventes</h2>
   <div class="seg">${Object.entries(modeLbls).map(([k,l])=>
     `<button class="${mode===k?"on":""}" onclick="ui.vMode='${k}';render()">${l}</button>`).join("")}</div>
   <div class="row" style="margin-bottom:12px">
@@ -638,6 +651,7 @@ function viewVentes(){
     <select class="grow" onchange="ui.vMetric=this.value;render()">
       <option value="montant" ${metric==="montant"?"selected":""}>Primes ($ CA)</option>
       <option value="place" ${metric==="place"?"selected":""}>Montants placés (épargne)</option>
+      <option value="com" ${metric==="com"?"selected":""}>Commissions</option>
       <option value="nombre" ${metric==="nombre"?"selected":""}>Nombre de ventes</option>
     </select>
   </div>
@@ -647,6 +661,7 @@ function viewVentes(){
     <div class="card" style="margin:0"><div class="muted">Primes gagnées</div><div class="big" style="color:var(--green)">${money(totM)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Ventes conclues</div><div class="big">${totN}</div></div>
     <div class="card" style="margin:0"><div class="muted">Montants placés (épargne)</div><div class="big" style="color:var(--purple)">${money(totPl)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Commissions touchées (période)</div><div class="big" style="color:var(--green)">${money(totCom)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Prime moyenne par vente</div><div class="big">${totN?fmtCA2.format(totM/totN):"—"}</div></div>
   </div>
   ${totN===0?`<div class="empty">Aucune vente sur la période.<br>Les ventes s'enregistrent automatiquement quand un prospect passe au statut « Client ».</div>`:""}`;
