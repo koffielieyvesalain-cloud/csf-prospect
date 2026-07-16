@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="csf-prospect">
+<meta name="theme-color" content="#0a84ff">
+<title>csf-prospect</title>
+<style>
+:root{
+  --bg:#f2f2f7; --card:#ffffff; --text:#1c1c1e; --text2:#6e6e73; --line:#e5e5ea;
+  --accent:#007aff; --green:#34c759; --orange:#ff9500; --red:#ff3b30; --purple:#af52de; --blue:#007aff; --gray:#8e8e93;
+  --tabbar:#ffffffee;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#000000; --card:#1c1c1e; --text:#ffffff; --text2:#98989f; --line:#2c2c2e;
+    --accent:#0a84ff; --green:#30d158; --orange:#ff9f0a; --red:#ff453a; --purple:#bf5af2; --blue:#0a84ff; --gray:#98989f;
+    --tabbar:#161616ee;
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  padding-top:env(safe-area-inset-top)}
+#app{max-width:640px;margin:0 auto;padding:12px 14px calc(90px + env(safe-area-inset-bottom));min-height:100%}
+h1{font-size:1.7em;margin:6px 2px 12px}
+h2{font-size:1.05em;margin:18px 2px 8px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-size:.82em}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+.muted{color:var(--text2);font-size:.86em}
+.big{font-size:1.5em;font-weight:700}
+.right{text-align:right}
+button{font:inherit;border:none;border-radius:12px;padding:12px 16px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+button:active{opacity:.7}
+button.sec{background:var(--card);color:var(--accent);border:1px solid var(--line)}
+button.danger{background:var(--red)}
+button.small{padding:7px 12px;font-size:.88em;border-radius:9px}
+button.ghost{background:transparent;color:var(--accent);padding:6px 8px}
+input,select,textarea{font:inherit;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);-webkit-appearance:none;appearance:none}
+input[type=checkbox]{width:auto;-webkit-appearance:checkbox;appearance:auto;transform:scale(1.25);accent-color:var(--accent)}
+label.field{display:block;margin-bottom:12px}
+label.field span.lbl{display:block;font-size:.82em;color:var(--text2);margin-bottom:5px}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:.75em;font-weight:600;color:#fff;white-space:nowrap}
+.chips{display:flex;gap:7px;overflow-x:auto;padding:4px 2px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:7px 13px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:.85em;font-weight:500;color:var(--text);cursor:pointer}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tabbar{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--tabbar);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:50}
+.tabbar button{flex:1;background:none;color:var(--text2);padding:9px 0 7px;border-radius:0;font-size:.68em;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabbar button.on{color:var(--accent)}
+.tabbar svg{width:25px;height:25px}
+.fab{position:fixed;right:18px;bottom:calc(78px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;font-size:30px;font-weight:400;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:40;padding:0}
+.pitem{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.pitem:last-child{border-bottom:none}
+.plist{background:var(--card);border-radius:14px;overflow:hidden;margin-bottom:10px}
+.avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex:0 0 auto;font-size:.95em}
+.due{border-left:4px solid var(--red)}
+.progress{height:9px;background:var(--line);border-radius:5px;overflow:hidden}
+.progress>div{height:100%;background:var(--green);border-radius:5px;transition:width .3s}
+.seg{display:flex;background:var(--line);border-radius:10px;padding:2.5px;margin-bottom:12px}
+.seg button{flex:1;background:transparent;color:var(--text);padding:8px 4px;font-size:.85em;border-radius:8px;font-weight:500}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin:12px 0}
+.actions3 a{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:11px 4px;text-decoration:none;color:var(--accent);font-size:.8em;font-weight:600}
+.warn{background:color-mix(in srgb, var(--orange) 14%, var(--card));border:1px solid var(--orange);border-radius:12px;padding:11px;font-size:.88em;margin:10px 0}
+.backbtn{display:inline-flex;align-items:center;gap:4px;color:var(--accent);background:none;padding:8px 4px;font-size:1em;font-weight:500}
+.empty{text-align:center;color:var(--text2);padding:44px 20px;font-size:.92em}
+.barrow{display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:18px}
+.barcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.bar{width:100%;max-width:44px;background:var(--accent);border-radius:5px 5px 0 0;min-height:2px}
+.barval{font-size:.62em;color:var(--text2);margin-bottom:3px;white-space:nowrap}
+.barlbl{font-size:.62em;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;max-width:100%;text-overflow:ellipsis}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.modal .sheet{background:var(--bg);border-radius:18px 18px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:18px 16px calc(20px + env(safe-area-inset-bottom))}
+.checkgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}
+.checkgrid label{display:flex;align-items:center;gap:9px;padding:8px 2px;font-size:.92em}
+.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:.94em}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--text2)}
+a.link{color:var(--accent);text-decoration:none;word-break:break-all}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="tabbar" id="tabbar"></div>
+<input type="file" id="importFile" accept=".json,application/json" style="display:none">
+<script>
+"use strict";
+/* ================= Données & utilitaires ================= */
+const KEY="csfprospect_v1";
+const fmtCA=new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0});
+const fmtCA2=new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD"});
+const money=v=>fmtCA.format(v||0);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const todayISO=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+const parseD=s=>{if(!s)return null;const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c);};
+const fmtDate=s=>{const d=parseD(s);return d?d.toLocaleDateString("fr-CA",{day:"numeric",month:"short",year:"numeric"}):"—";};
+const daysBetween=(a,b)=>Math.round((parseD(b)-parseD(a))/864e5);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const STATUTS={
+  a_contacter:{lbl:"À contacter",color:"var(--gray)"},
+  contacte:{lbl:"Contacté",color:"var(--blue)"},
+  a_relancer:{lbl:"À relancer",color:"var(--orange)"},
+  rdv:{lbl:"RDV fixé",color:"var(--purple)"},
+  client:{lbl:"Client",color:"var(--green)"},
+  perdu:{lbl:"Perdu",color:"var(--red)"}
+};
+const EN_COURS=["a_contacter","contacte","a_relancer","rdv"];
+const PRODUITS=["Assurance vie","Épargne / retraite","Santé","Prévoyance","Auto","Moto","Habitation","Multirisque professionnelle","Voyage","Autre"];
+const AVCOLORS=["#007aff","#34c759","#ff9500","#af52de","#ff3b30","#5ac8fa","#ffcc00","#ff2d55"];
+
+let state={prospects:[],objectifs:[]};
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.prospects))state=s;}catch(e){}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+const getP=id=>state.prospects.find(p=>p.id===id);
+
+function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,
+  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null};}
+
+/* ================= Logique métier ================= */
+function setStatut(p,s){
+  if(p.statut===s)return;
+  p.statut=s;
+  if(s==="client"&&!p.dateGain)p.dateGain=todayISO();
+  if(s!=="client")p.dateGain=null;
+  if(s==="client"||s==="perdu")p.prochaineRelance=null;
+  save();
+}
+function relanceDue(p){return p.prochaineRelance&&EN_COURS.includes(p.statut)&&p.prochaineRelance<=todayISO();}
+function faireRelance(p){
+  p.relances=(p.relances||0)+1;
+  p.dernierContact=todayISO();
+  p.prochaineRelance=null;
+  if(p.relances>=3&&p.autoPerdu){setStatut(p,"perdu");}
+  else if(p.statut==="a_contacter")p.statut="contacte";
+  save();
+}
+function contactFait(p){
+  p.dernierContact=todayISO();
+  if(p.statut==="a_contacter")p.statut="contacte";
+  save();
+}
+function fullName(p){return(p.prenom+" "+p.nom).trim()||"(sans nom)";}
+function initials(p){return((p.prenom[0]||"")+(p.nom[0]||"")).toUpperCase()||"?";}
+function avColor(p){let h=0;for(const c of p.id)h=(h*31+c.charCodeAt(0))>>>0;return AVCOLORS[h%AVCOLORS.length];}
+
+/* ================= Statistiques ================= */
+function stats(){
+  const ps=state.prospects;
+  const cl=ps.filter(p=>p.statut==="client"),pe=ps.filter(p=>p.statut==="perdu"),ec=ps.filter(p=>EN_COURS.includes(p.statut));
+  const sum=a=>a.reduce((t,p)=>t+(+p.prime||0),0);
+  const dec=cl.length+pe.length;
+  const taux=dec?Math.round(cl.length/dec*100):null;
+  const delais=cl.filter(p=>p.dateGain&&p.dateCreation).map(p=>daysBetween(p.dateCreation,p.dateGain));
+  const delai=delais.length?Math.round(delais.reduce((a,b)=>a+b,0)/delais.length):null;
+  return{gagne:sum(cl),pot:sum(ec),perdu:sum(pe),nCl:cl.length,nEc:ec.length,nPe:pe.length,taux,delai};
+}
+function objProgress(o){
+  return state.prospects.filter(p=>p.statut==="client"&&p.dateGain&&p.dateGain>=o.dateDebut&&p.dateGain<=o.dateFin)
+    .reduce((t,p)=>t+(+p.prime||0),0);
+}
+
+/* ================= Export / Import / ICS ================= */
+function download(name,content,mime){
+  const b=new Blob([content],{type:mime});const u=URL.createObjectURL(b);
+  const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},400);
+}
+function exportJSON(){download("csf-prospect-sauvegarde-"+todayISO()+".json",JSON.stringify(state,null,2),"application/json");}
+function importJSON(file){
+  const r=new FileReader();
+  r.onload=()=>{try{
+    const s=JSON.parse(r.result);
+    if(!s||!Array.isArray(s.prospects))throw 0;
+    if(confirm("Remplacer toutes les données actuelles par cette sauvegarde ("+s.prospects.length+" prospects) ?")){
+      state=s;save();render();alert("Sauvegarde restaurée.");}
+  }catch(e){alert("Fichier de sauvegarde invalide.");}};
+  r.readAsText(file);
+}
+document.getElementById("importFile").addEventListener("change",e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value="";});
+
+function icsRelance(p){
+  const d=p.prochaineRelance;if(!d)return;
+  const dt=d.replace(/-/g,"");
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
+  const t=s=>s.replace(/([\\;,])/g,"\\$1");
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//csf-prospect//FR","BEGIN:VEVENT",
+    "UID:"+p.id+"-"+dt+"@csf-prospect","DTSTAMP:"+stamp,
+    "DTSTART:"+dt+"T090000","DTEND:"+dt+"T093000",
+    "SUMMARY:"+t("Relance : "+fullName(p)+" ("+(p.relances||0)+"/3)"),
+    "DESCRIPTION:"+t("Prospect csf-prospect — "+(p.societe||"")+" — "+(p.tel||"")+" — prime estimée "+money(p.prime)),
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Relance","TRIGGER:-P1D","END:VALARM",
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Relance","TRIGGER:-PT2H","END:VALARM",
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Relance","TRIGGER:PT0S","END:VALARM",
+    "END:VEVENT","END:VCALENDAR"].join("\r\n");
+  download("relance-"+(p.nom||"prospect")+"-"+d+".ics",ics,"text/calendar");
+}
+
+/* ================= Router ================= */
+let route={view:"list",id:null,edit:null};
+let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false};
+function go(view,id){route={view,id:id||null};window.scrollTo(0,0);render();}
+const TABS=[
+  {id:"list",lbl:"Prospects",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.3c2.8.2 4.8 1.7 5.5 4.7"/></svg>'},
+  {id:"dash",lbl:"Tableau de bord",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.5"/><rect x="13.5" y="12" width="7.5" height="9" rx="1.5"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="1.5"/></svg>'},
+  {id:"ventes",lbl:"Ventes",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>'}
+];
+function renderTabbar(){
+  const cur=route.view==="dash"?"dash":route.view==="ventes"?"ventes":"list";
+  document.getElementById("tabbar").innerHTML=TABS.map(t=>
+    `<button class="${cur===t.id?"on":""}" onclick="go('${t.id}')">${t.icon}<span>${t.lbl}</span></button>`).join("");
+}
+
+/* ================= Vue : liste des prospects ================= */
+function badge(s){const st=STATUTS[s];return `<span class="badge" style="background:${st.color}">${st.lbl}</span>`;}
+function pItem(p,due){
+  const prod=p.produits.length?p.produits.slice(0,2).join(", ")+(p.produits.length>2?"…":""):"";
+  return `<div class="pitem ${due?"due":""}" onclick="go('detail','${p.id}')">
+    <div class="avatar" style="background:${avColor(p)}">${esc(initials(p))}</div>
+    <div class="grow">
+      <div style="font-weight:600">${esc(fullName(p))}</div>
+      <div class="muted">${esc(p.societe||prod||"")}</div>
+      ${due?`<div class="muted" style="color:var(--red);font-weight:600">Relance due le ${fmtDate(p.prochaineRelance)} · ${p.relances||0}/3</div>`
+        :(p.prochaineRelance?`<div class="muted">Relance le ${fmtDate(p.prochaineRelance)}</div>`:"")}
+    </div>
+    <div class="right">
+      <div style="font-weight:700">${money(p.prime)}</div>
+      ${badge(p.statut)}
+    </div>
+  </div>`;
+}
+function matchSearch(p,q){
+  if(!q)return true;q=q.toLowerCase();
+  return fullName(p).toLowerCase().includes(q)||(p.societe||"").toLowerCase().includes(q)
+    ||p.produits.some(x=>x.toLowerCase().includes(q));
+}
+function viewList(){
+  const q=ui.search,f=ui.filtre;
+  let ps=state.prospects.filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f));
+  const dues=state.prospects.filter(relanceDue).filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f))
+    .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
+  const dueIds=new Set(dues.map(p=>p.id));
+  ps=ps.filter(p=>!dueIds.has(p.id)).sort((a,b)=>fullName(a).localeCompare(fullName(b),"fr"));
+  const chips=[["tous","Tous"],...Object.entries(STATUTS).map(([k,v])=>[k,v.lbl])];
+  return `<h1>Prospects</h1>
+    <input type="search" placeholder="Rechercher nom, société ou produit…" value="${esc(q)}"
+      oninput="ui.search=this.value;refreshList()">
+    <div class="chips" style="margin-top:9px">${chips.map(([k,l])=>
+      `<button class="chip ${f===k?"on":""}" onclick="ui.filtre='${k}';render()">${l}</button>`).join("")}</div>
+    <div id="listZone">${listZone(dues,ps)}</div>
+    <button class="fab" onclick="go('form')">+</button>`;
+}
+function listZone(dues,ps){
+  let h="";
+  if(dues.length)h+=`<h2 style="color:var(--red)">🔔 Relances à faire (${dues.length})</h2>
+    <div class="plist">${dues.map(p=>pItem(p,true)).join("")}</div>`;
+  h+=dues.length?`<h2>Tous les prospects</h2>`:"";
+  h+=ps.length?`<div class="plist" style="margin-top:${dues.length?0:14}px">${ps.map(p=>pItem(p,false)).join("")}</div>`
+    :(dues.length?"":`<div class="empty">Aucun prospect${ui.search||ui.filtre!=="tous"?" ne correspond à la recherche":""}.<br><br>Touchez <b>+</b> pour ajouter votre premier prospect.</div>`);
+  return h;
+}
+function refreshList(){
+  const q=ui.search,f=ui.filtre;
+  let ps=state.prospects.filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f));
+  const dues=state.prospects.filter(relanceDue).filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f))
+    .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
+  const dueIds=new Set(dues.map(p=>p.id));
+  ps=ps.filter(p=>!dueIds.has(p.id)).sort((a,b)=>fullName(a).localeCompare(fullName(b),"fr"));
+  const z=document.getElementById("listZone");if(z)z.innerHTML=listZone(dues,ps);
+}
+
+/* ================= Vue : formulaire ajout / édition ================= */
+function viewForm(){
+  const p=route.id?getP(route.id):newProspect();
+  const isNew=!route.id;
+  return `<button class="backbtn" onclick="${isNew?"go('list')":`go('detail','${p.id}')`}">‹ Retour</button>
+  <h1>${isNew?"Nouveau prospect":"Modifier"}</h1>
+  <form onsubmit="return submitForm(event,'${isNew?"":p.id}')">
+    <div class="card">
+      <div class="row">
+        <label class="field grow"><span class="lbl">Prénom</span><input name="prenom" value="${esc(p.prenom)}" autocomplete="off"></label>
+        <label class="field grow"><span class="lbl">Nom</span><input name="nom" value="${esc(p.nom)}" autocomplete="off"></label>
+      </div>
+      <label class="field"><span class="lbl">Société</span><input name="societe" value="${esc(p.societe)}" autocomplete="off"></label>
+      <label class="field"><span class="lbl">Téléphone</span><input name="tel" type="tel" value="${esc(p.tel)}" autocomplete="off"></label>
+      <label class="field"><span class="lbl">Email</span><input name="email" type="email" value="${esc(p.email)}" autocomplete="off"></label>
+      <label class="field" style="margin-bottom:0"><span class="lbl">Notes</span><textarea name="notes" rows="3">${esc(p.notes)}</textarea></label>
+    </div>
+    <h2>Produits d'intérêt</h2>
+    <div class="card checkgrid">${PRODUITS.map(pr=>
+      `<label><input type="checkbox" name="produits" value="${esc(pr)}" ${p.produits.includes(pr)?"checked":""}> ${esc(pr)}</label>`).join("")}
+    </div>
+    <h2>Suivi</h2>
+    <div class="card">
+      <label class="field"><span class="lbl">Prime mensuelle estimée ($ CA)</span>
+        <input name="prime" type="number" inputmode="decimal" min="0" step="1" value="${p.prime||""}" placeholder="0"></label>
+      <label class="field"><span class="lbl">Statut</span>
+        <select name="statut">${Object.entries(STATUTS).map(([k,v])=>`<option value="${k}" ${p.statut===k?"selected":""}>${v.lbl}</option>`).join("")}</select></label>
+      <label class="field" style="margin-bottom:0"><span class="lbl">Prochaine relance</span>
+        <input name="prochaineRelance" type="date" value="${p.prochaineRelance||""}"></label>
+    </div>
+    <button type="submit" style="width:100%;margin-top:8px">${isNew?"Ajouter le prospect":"Enregistrer"}</button>
+  </form>`;
+}
+function submitForm(e,id){
+  e.preventDefault();
+  const f=e.target,p=id?getP(id):newProspect();
+  ["prenom","nom","societe","tel","email","notes"].forEach(k=>p[k]=f[k].value.trim());
+  p.produits=[...f.querySelectorAll('input[name=produits]:checked')].map(c=>c.value);
+  p.prime=parseFloat(f.prime.value)||0;
+  p.prochaineRelance=f.prochaineRelance.value||null;
+  if(!p.prenom&&!p.nom){alert("Indiquez au moins un prénom ou un nom.");return false;}
+  const st=f.statut.value;
+  if(!id)state.prospects.push(p);
+  setStatut(p,st)||save();
+  go("detail",p.id);
+  return false;
+}
+
+/* ================= Vue : fiche prospect ================= */
+function viewDetail(){
+  const p=getP(route.id);
+  if(!p)return `<div class="empty">Prospect introuvable.</div>`;
+  const due=relanceDue(p);
+  const tel=(p.tel||"").replace(/[^+\d]/g,"");
+  return `<button class="backbtn" onclick="go('list')">‹ Prospects</button>
+  <div class="card" style="text-align:center;padding-top:20px">
+    <div class="avatar" style="background:${avColor(p)};width:64px;height:64px;font-size:1.4em;margin:0 auto 10px">${esc(initials(p))}</div>
+    <div style="font-size:1.35em;font-weight:700">${esc(fullName(p))}</div>
+    ${p.societe?`<div class="muted">${esc(p.societe)}</div>`:""}
+    <div style="margin:8px 0 4px">${badge(p.statut)}</div>
+    <div class="big" style="margin-top:4px">${money(p.prime)}<span class="muted" style="font-size:.5em;font-weight:400"> /mois</span></div>
+  </div>
+  <div class="actions3">
+    ${tel?`<a href="tel:${tel}">📞 Appeler</a><a href="sms:${tel}">💬 SMS</a>`:`<a style="opacity:.35;pointer-events:none">📞 Appeler</a><a style="opacity:.35;pointer-events:none">💬 SMS</a>`}
+    ${p.email?`<a href="mailto:${esc(p.email)}">✉️ Email</a>`:`<a style="opacity:.35;pointer-events:none">✉️ Email</a>`}
+  </div>
+
+  <h2>Statut</h2>
+  <div class="card">
+    <select onchange="setStatut(getP('${p.id}'),this.value);render()">
+      ${Object.entries(STATUTS).map(([k,v])=>`<option value="${k}" ${p.statut===k?"selected":""}>${v.lbl}</option>`).join("")}
+    </select>
+    ${p.statut==="client"&&p.dateGain?`<div class="muted" style="margin-top:8px">✅ Vente conclue le ${fmtDate(p.dateGain)}</div>`:""}
+    ${EN_COURS.includes(p.statut)?`<button class="sec small" style="margin-top:10px;width:100%" onclick="contactFait(getP('${p.id}'));render()">J'ai contacté ce prospect aujourd'hui</button>`:""}
+  </div>
+
+  <h2>Relances — règle des 3 relances</h2>
+  <div class="card">
+    ${due?`<div class="warn" style="border-color:var(--red);background:color-mix(in srgb,var(--red) 12%,var(--card));margin-top:0">🔔 <b>Relance due</b> depuis le ${fmtDate(p.prochaineRelance)}</div>`:""}
+    <div class="kv"><span class="k">Compteur de relances</span>
+      <span style="font-weight:700;color:${p.relances>=2?"var(--orange)":"inherit"}">${p.relances||0} / 3</span></div>
+    ${p.relances>=2&&EN_COURS.includes(p.statut)?`<div class="warn">⚠️ ${p.relances>=3?"3 relances effectuées.":"Encore "+(3-p.relances)+" relance avant le passage automatique en « Perdu »"+(p.autoPerdu?".":" (désactivé).")}</div>`:""}
+    <label class="field" style="margin-top:10px"><span class="lbl">Prochaine relance planifiée</span>
+      <input type="date" value="${p.prochaineRelance||""}" onchange="getP('${p.id}').prochaineRelance=this.value||null;save();render()"></label>
+    ${EN_COURS.includes(p.statut)?`<button style="width:100%;background:var(--orange)" onclick="faireRelance(getP('${p.id}'));render()">✓ Relance effectuée aujourd'hui</button>`:""}
+    <div class="row" style="margin-top:9px">
+      ${p.prochaineRelance?`<button class="sec small grow" onclick="icsRelance(getP('${p.id}'))">📅 Ajouter au Calendrier (.ics)</button>`:""}
+      ${p.relances?`<button class="sec small grow" onclick="if(confirm('Réinitialiser le compteur de relances ?')){getP('${p.id}').relances=0;save();render()}">Réinitialiser (0/3)</button>`:""}
+    </div>
+    <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:.9em">
+      <input type="checkbox" ${p.autoPerdu?"checked":""} onchange="getP('${p.id}').autoPerdu=this.checked;save()">
+      Passage automatique en « Perdu » après 3 relances
+    </label>
+  </div>
+
+  <h2>Coordonnées & infos</h2>
+  <div class="card">
+    <div class="kv"><span class="k">Téléphone</span><span>${p.tel?`<a class="link" href="tel:${tel}">${esc(p.tel)}</a>`:"—"}</span></div>
+    <div class="kv"><span class="k">Email</span><span>${p.email?`<a class="link" href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:"—"}</span></div>
+    <div class="kv"><span class="k">Produits d'intérêt</span><span class="right" style="max-width:60%">${p.produits.map(esc).join(", ")||"—"}</span></div>
+    <div class="kv"><span class="k">Créé le</span><span>${fmtDate(p.dateCreation)}</span></div>
+    <div class="kv"><span class="k">Dernier contact</span><span>${p.dernierContact?fmtDate(p.dernierContact):"Jamais"}</span></div>
+    ${p.notes?`<div style="padding-top:10px"><span class="muted">Notes</span><div style="white-space:pre-wrap;margin-top:4px">${esc(p.notes)}</div></div>`:""}
+  </div>
+  <div class="row" style="margin-top:14px">
+    <button class="sec grow" onclick="route={view:'form',id:'${p.id}'};render();window.scrollTo(0,0)">Modifier</button>
+    <button class="danger grow" onclick="if(confirm('Supprimer définitivement ${esc(fullName(p)).replace(/'/g,"\\'")} ?')){state.prospects=state.prospects.filter(x=>x.id!=='${p.id}');save();go('list')}">Supprimer</button>
+  </div>`;
+}
+
+/* ================= Vue : tableau de bord ================= */
+function viewDash(){
+  const s=stats();
+  const tauxColor=s.taux===null?"var(--text2)":s.taux>=50?"var(--green)":s.taux>=25?"var(--orange)":"var(--red)";
+  const total=state.prospects.length||1;
+  const rep=Object.entries(STATUTS).map(([k,v])=>{
+    const n=state.prospects.filter(p=>p.statut===k).length;
+    return `<div class="kv"><span class="k">${v.lbl}</span>
+      <span class="row" style="gap:8px"><span style="width:90px" class="progress"><div style="width:${Math.round(n/total*100)}%;background:${v.color}"></div></span><b style="min-width:20px;text-align:right">${n}</b></span></div>`;
+  }).join("");
+  const actifs=state.objectifs.filter(o=>!o.termine),finis=state.objectifs.filter(o=>o.termine);
+  return `<h1>Tableau de bord</h1>
+  <h2>Primes mensuelles</h2>
+  <div class="statgrid">
+    <div class="card" style="margin:0"><div class="muted">Gagnées · ${s.nCl} client${s.nCl>1?"s":""}</div><div class="big" style="color:var(--green)">${money(s.gagne)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Potentielles · ${s.nEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.pot)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Perdues · ${s.nPe} perdu${s.nPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.perdu)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Taux de conversion</div><div class="big" style="color:${tauxColor}">${s.taux===null?"—":s.taux+" %"}</div>
+      <div class="muted" style="font-size:.75em">${s.delai!==null?"Délai moyen : "+s.delai+" j":"gagnés / décidés"}</div></div>
+  </div>
+  <h2>Répartition des prospects</h2>
+  <div class="card">${rep}</div>
+  <h2>Objectifs</h2>
+  ${actifs.map(objCard).join("")||`<div class="card muted">Aucun objectif en cours.</div>`}
+  <button class="sec" style="width:100%" onclick="ui.showObjForm=true;render()">+ Nouvel objectif</button>
+  ${finis.length?`<h2>Objectifs terminés</h2><div class="card">${finis.map(o=>{
+    const a=objProgress(o);
+    return `<div class="kv"><span><b>${esc(o.titre)}</b><br><span class="muted">Terminé le ${fmtDate(o.dateTerminaison)} — ${money(a)} / ${money(o.cible)}</span></span>
+      <button class="ghost" onclick="if(confirm('Supprimer cet objectif ?')){state.objectifs=state.objectifs.filter(x=>x.id!=='${o.id}');save();render()}">🗑</button></div>`;}).join("")}</div>`:""}
+  <h2>Sauvegarde</h2>
+  <div class="row">
+    <button class="sec grow" onclick="exportJSON()">⬇︎ Exporter (JSON)</button>
+    <button class="sec grow" onclick="document.getElementById('importFile').click()">⬆︎ Importer</button>
+  </div>
+  <div class="muted" style="margin-top:10px;font-size:.78em">Données stockées uniquement sur cet appareil. Exportez régulièrement une sauvegarde.</div>
+  ${ui.showObjForm?objForm():""}`;
+}
+function objCard(o){
+  const a=objProgress(o),pct=Math.min(100,o.cible?Math.round(a/o.cible*100):0);
+  const jr=daysBetween(todayISO(),o.dateFin);
+  const atteint=a>=o.cible&&o.cible>0;
+  const jrTxt=atteint?`<span style="color:var(--green);font-weight:700">🎯 Objectif atteint !</span>`
+    :jr<0?`<span style="color:var(--red);font-weight:700">Échéance dépassée</span>`
+    :`<span style="color:${jr<=7?"var(--orange)":"var(--text2)"}">${jr} jour${jr>1?"s":""} restant${jr>1?"s":""}</span>`;
+  return `<div class="card">
+    <div class="row"><b class="grow">${esc(o.titre)}</b>${jrTxt}</div>
+    <div class="muted" style="margin:4px 0 8px">${fmtDate(o.dateDebut)} → ${fmtDate(o.dateFin)}</div>
+    <div class="progress"><div style="width:${pct}%;${atteint?"":pct<40?"background:var(--orange);":""}"></div></div>
+    <div class="row" style="margin-top:7px"><span class="grow" style="font-weight:600">${money(a)} <span class="muted">/ ${money(o.cible)} (${pct} %)</span></span>
+      <button class="ghost small" onclick="const o=state.objectifs.find(x=>x.id==='${o.id}');o.termine=true;o.dateTerminaison=todayISO();save();render()">Terminer</button></div>
+  </div>`;
+}
+function objForm(){
+  const durees=[["7","1 semaine"],["14","2 semaines"],["30","1 mois"],["61","2 mois"],["91","3 mois"],["183","6 mois"],["274","9 mois"],["365","12 mois"],["perso","Date personnalisée…"]];
+  return `<div class="modal" onclick="if(event.target===this){ui.showObjForm=false;render()}">
+    <div class="sheet">
+      <h1 style="font-size:1.3em">Nouvel objectif</h1>
+      <form onsubmit="return submitObj(event)">
+        <label class="field"><span class="lbl">Titre</span><input name="titre" required placeholder="Ex. : Objectif T3 2026"></label>
+        <label class="field"><span class="lbl">Montant cible de primes gagnées ($ CA)</span><input name="cible" type="number" inputmode="decimal" min="1" required placeholder="5000"></label>
+        <label class="field"><span class="lbl">Date de début</span><input name="debut" type="date" value="${todayISO()}" required></label>
+        <label class="field"><span class="lbl">Durée</span>
+          <select name="duree" onchange="document.getElementById('persoDate').style.display=this.value==='perso'?'block':'none'">
+            ${durees.map(([v,l])=>`<option value="${v}" ${v==="30"?"selected":""}>${l}</option>`).join("")}</select></label>
+        <label class="field" id="persoDate" style="display:none"><span class="lbl">Date d'échéance (max. 12 mois)</span><input name="fin" type="date"></label>
+        <div class="row"><button type="button" class="sec grow" onclick="ui.showObjForm=false;render()">Annuler</button>
+        <button type="submit" class="grow">Créer</button></div>
+      </form>
+    </div></div>`;
+}
+function submitObj(e){
+  e.preventDefault();const f=e.target;
+  const debut=f.debut.value,cible=parseFloat(f.cible.value)||0;
+  let fin;
+  if(f.duree.value==="perso"){
+    fin=f.fin.value;
+    if(!fin||fin<=debut){alert("Choisissez une date d'échéance après la date de début.");return false;}
+    if(daysBetween(debut,fin)>366){alert("Durée maximale : 12 mois.");return false;}
+  }else{
+    const d=parseD(debut);d.setDate(d.getDate()+parseInt(f.duree.value));
+    fin=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  state.objectifs.push({id:uid(),titre:f.titre.value.trim(),cible,dateDebut:debut,dateFin:fin,termine:false,dateTerminaison:null});
+  save();ui.showObjForm=false;render();return false;
+}
+
+/* ================= Vue : graphique des ventes ================= */
+const PERIODES={semaine:[4,8,12,26],mois:[3,6,12,24],annee:[2,3,5,10]};
+function bucketStart(mode,offset){ // offset 0 = période courante, 1 = précédente…
+  const now=new Date();now.setHours(0,0,0,0);
+  if(mode==="semaine"){
+    const d=new Date(now);const wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd-7*offset);return d;
+  }
+  if(mode==="mois")return new Date(now.getFullYear(),now.getMonth()-offset,1);
+  return new Date(now.getFullYear()-offset,0,1);
+}
+function bucketLabel(mode,d){
+  if(mode==="semaine")return d.toLocaleDateString("fr-CA",{day:"numeric",month:"short"});
+  if(mode==="mois")return d.toLocaleDateString("fr-CA",{month:"short",year:"2-digit"});
+  return String(d.getFullYear());
+}
+function viewVentes(){
+  const mode=ui.vMode,n=ui.vPer[mode],metric=ui.vMetric;
+  const buckets=[];
+  for(let i=n-1;i>=0;i--){
+    const s=bucketStart(mode,i),e=bucketStart(mode,i-1);
+    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0});
+  }
+  const ventes=state.prospects.filter(p=>p.statut==="client"&&p.dateGain);
+  let totM=0,totN=0;
+  for(const p of ventes){
+    const g=parseD(p.dateGain);
+    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.nombre++;totM+=(+p.prime||0);totN++;break;}
+  }
+  const vals=buckets.map(b=>metric==="montant"?b.montant:b.nombre);
+  const max=Math.max(...vals,1);
+  const showEvery=Math.ceil(buckets.length/8);
+  const bars=buckets.map((b,i)=>{
+    const v=vals[i],h=Math.round(v/max*145);
+    return `<div class="barcol">
+      ${v?`<div class="barval">${metric==="montant"?money(v):v}</div>`:""}
+      <div class="bar" style="height:${h}px;${v?"":"background:var(--line);"}"></div>
+      <div class="barlbl">${i%showEvery===0||i===buckets.length-1?b.lbl:""}</div>
+    </div>`;}).join("");
+  const modeLbls={semaine:"Semaine",mois:"Mois",annee:"Année"};
+  return `<h1>Ventes</h1>
+  <div class="seg">${Object.entries(modeLbls).map(([k,l])=>
+    `<button class="${mode===k?"on":""}" onclick="ui.vMode='${k}';render()">${l}</button>`).join("")}</div>
+  <div class="row" style="margin-bottom:12px">
+    <select class="grow" onchange="ui.vPer['${mode}']=+this.value;render()">
+      ${PERIODES[mode].map(x=>`<option value="${x}" ${x===n?"selected":""}>${x} ${mode==="semaine"?"semaines":mode==="mois"?"mois":"ans"}</option>`).join("")}
+    </select>
+    <select class="grow" onchange="ui.vMetric=this.value;render()">
+      <option value="montant" ${metric==="montant"?"selected":""}>Primes ($ CA)</option>
+      <option value="nombre" ${metric==="nombre"?"selected":""}>Nombre de ventes</option>
+    </select>
+  </div>
+  <div class="card"><div class="barrow">${bars}</div></div>
+  <h2>Totaux de la période</h2>
+  <div class="statgrid">
+    <div class="card" style="margin:0"><div class="muted">Primes gagnées</div><div class="big" style="color:var(--green)">${money(totM)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Ventes conclues</div><div class="big">${totN}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Prime moyenne par vente</div><div class="big">${totN?fmtCA2.format(totM/totN):"—"}</div></div>
+  </div>
+  ${totN===0?`<div class="empty">Aucune vente sur la période.<br>Les ventes s'enregistrent automatiquement quand un prospect passe au statut « Client ».</div>`:""}`;
+}
+
+/* ================= Rendu ================= */
+function render(){
+  const v=route.view;
+  document.getElementById("app").innerHTML=
+    v==="detail"?viewDetail():v==="form"?viewForm():v==="dash"?viewDash():v==="ventes"?viewVentes():viewList();
+  renderTabbar();
+}
+load();
+render();
+</script>
+</body>
+</html>
