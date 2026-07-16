@@ -197,6 +197,9 @@ function montantsHTML(p,small){
 function commission(p){
   return (+p.prime||0)/0.09/2*2.75 + (+p.montantPlace||0)*0.04;
 }
+function creditVente(p){
+  return (+p.prime||0)/0.09/2*2.5 + (+p.montantPlace||0)*0.025;
+}
 function avColor(p){let h=0;for(const c of p.id)h=(h*31+c.charCodeAt(0))>>>0;return AVCOLORS[h%AVCOLORS.length];}
 
 /* ================= Statistiques ================= */
@@ -211,9 +214,11 @@ function stats(){
   const sumP=a=>a.reduce((t,p)=>t+(+p.montantPlace||0),0);
   const nP=a=>a.filter(p=>+p.montantPlace>0).length;
   const sumC=a=>a.reduce((t,p)=>t+commission(p),0);
+  const sumCr=a=>a.reduce((t,p)=>t+creditVente(p),0);
   return{gagne:sum(cl),pot:sum(ec),perdu:sum(pe),nCl:cl.length,nEc:ec.length,nPe:pe.length,taux,delai,
     plGagne:sumP(cl),plPot:sumP(ec),plPerdu:sumP(pe),nPlCl:nP(cl),nPlEc:nP(ec),nPlPe:nP(pe),
-    comGagne:sumC(cl),comPot:sumC(ec),comPerdu:sumC(pe)};
+    comGagne:sumC(cl),comPot:sumC(ec),comPerdu:sumC(pe),
+    creGagne:sumCr(cl),crePot:sumCr(ec),crePerdu:sumCr(pe)};
 }
 function objProgress(o){
   return state.prospects.filter(p=>p.statut==="client"&&p.dateGain&&p.dateGain>=o.dateDebut&&p.dateGain<=o.dateFin)
@@ -418,6 +423,7 @@ function viewDetail(){
     ${+p.prime||!+p.montantPlace?`<div class="big" style="margin-top:4px">${money(p.prime)}<span class="muted" style="font-size:.5em;font-weight:400"> /mois</span></div>`:""}
     ${+p.montantPlace?`<div class="big" style="margin-top:2px;color:var(--purple)">${money(p.montantPlace)}<span class="muted" style="font-size:.5em;font-weight:400"> placé (épargne)</span></div>`:""}
     ${commission(p)>0?`<div class="muted" style="margin-top:6px">Commission ${p.statut==="client"?"touchée":"estimée"} : <b style="color:var(--green)">${money(commission(p))}</b></div>`:""}
+    ${creditVente(p)>0?`<div class="muted" style="margin-top:2px">Crédit de vente ${p.statut==="client"?"touché":"estimé"} : <b style="color:var(--accent)">${money(creditVente(p))}</b></div>`:""}
   </div>
   <div class="actions3">
     ${tel?`<a href="tel:${tel}" onclick="logH(getP('${p.id}'),'appel')">📞 Appeler</a><a href="sms:${tel}" onclick="logH(getP('${p.id}'),'sms')">💬 SMS</a>`:`<a style="opacity:.35;pointer-events:none">📞 Appeler</a><a style="opacity:.35;pointer-events:none">💬 SMS</a>`}
@@ -522,6 +528,13 @@ function viewDash(){
     <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Manquées · ${s.nPe} perdu${s.nPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.comPerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">Assurance : prime ÷ 0,09 ÷ 2 + 175 % · Épargne : 4 % du montant placé.</div>
+  <h2>Crédits de vente</h2>
+  <div class="statgrid">
+    <div class="card" style="margin:0"><div class="muted">Touchés · ${s.nCl} client${s.nCl>1?"s":""}</div><div class="big" style="color:var(--green)">${money(s.creGagne)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Potentiels · ${s.nEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.crePot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Manqués · ${s.nPe} perdu${s.nPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.crePerdu)}</div></div>
+  </div>
+  <div class="muted" style="font-size:.78em;margin:-2px 2px 0">Assurance : prime ÷ 0,09 ÷ 2 × 2,5 · Épargne : 2,5 % du montant placé.</div>
   <h2>Répartition des prospects</h2>
   <div class="card">${rep}</div>
   <h2>Objectifs</h2>
@@ -609,15 +622,15 @@ function viewVentes(){
   const buckets=[];
   for(let i=n-1;i>=0;i--){
     const s=bucketStart(mode,i),e=bucketStart(mode,i-1);
-    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0,place:0,com:0});
+    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0,place:0,com:0,cre:0});
   }
   const ventes=state.prospects.filter(p=>p.statut==="client"&&p.dateGain);
-  let totM=0,totN=0,totPl=0,totCom=0;
+  let totM=0,totN=0,totPl=0,totCom=0,totCre=0;
   for(const p of ventes){
     const g=parseD(p.dateGain);
-    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.place+=(+p.montantPlace||0);b.com+=commission(p);b.nombre++;totM+=(+p.prime||0);totPl+=(+p.montantPlace||0);totCom+=commission(p);totN++;break;}
+    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.place+=(+p.montantPlace||0);b.com+=commission(p);b.cre+=creditVente(p);b.nombre++;totM+=(+p.prime||0);totPl+=(+p.montantPlace||0);totCom+=commission(p);totCre+=creditVente(p);totN++;break;}
   }
-  const vals=buckets.map(b=>metric==="montant"?b.montant:metric==="place"?b.place:metric==="com"?b.com:b.nombre);
+  const vals=buckets.map(b=>metric==="montant"?b.montant:metric==="place"?b.place:metric==="com"?b.com:metric==="cre"?b.cre:b.nombre);
   const max=Math.max(...vals,1);
   const showEvery=Math.ceil(buckets.length/8);
   const bars=buckets.map((b,i)=>{
@@ -631,6 +644,8 @@ function viewVentes(){
   const st=stats();
   const totCombine=st.comGagne+st.comPot;
   const pctCom=totCombine?Math.round(st.comGagne/totCombine*100):0;
+  const totCreG=st.creGagne+st.crePot;
+  const pctCre=totCreG?Math.round(st.creGagne/totCreG*100):0;
   return `<h1>Ventes</h1>
   <h2 style="margin-top:2px">Commissions — total global</h2>
   <div class="statgrid" style="margin-bottom:6px">
@@ -640,6 +655,15 @@ function viewVentes(){
   <div class="card">
     <div class="progress" style="height:12px"><div style="width:${pctCom}%"></div></div>
     <div class="muted" style="margin-top:7px">${money(st.comGagne)} touchées sur ${money(totCombine)} en jeu (${pctCom} %)</div>
+  </div>
+  <h2>Crédits de vente — total global</h2>
+  <div class="statgrid" style="margin-bottom:6px">
+    <div class="card" style="margin:0"><div class="muted">✅ Déjà touchés</div><div class="big" style="color:var(--green)">${money(st.creGagne)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">⏳ Potentiels à gagner</div><div class="big" style="color:var(--accent)">${money(st.crePot)}</div></div>
+  </div>
+  <div class="card">
+    <div class="progress" style="height:12px"><div style="width:${pctCre}%"></div></div>
+    <div class="muted" style="margin-top:7px">${money(st.creGagne)} touchés sur ${money(totCreG)} en jeu (${pctCre} %)</div>
   </div>
   <h2>Graphique des ventes</h2>
   <div class="seg">${Object.entries(modeLbls).map(([k,l])=>
@@ -652,6 +676,7 @@ function viewVentes(){
       <option value="montant" ${metric==="montant"?"selected":""}>Primes ($ CA)</option>
       <option value="place" ${metric==="place"?"selected":""}>Montants placés (épargne)</option>
       <option value="com" ${metric==="com"?"selected":""}>Commissions</option>
+      <option value="cre" ${metric==="cre"?"selected":""}>Crédits de vente</option>
       <option value="nombre" ${metric==="nombre"?"selected":""}>Nombre de ventes</option>
     </select>
   </div>
@@ -662,6 +687,7 @@ function viewVentes(){
     <div class="card" style="margin:0"><div class="muted">Ventes conclues</div><div class="big">${totN}</div></div>
     <div class="card" style="margin:0"><div class="muted">Montants placés (épargne)</div><div class="big" style="color:var(--purple)">${money(totPl)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Commissions touchées (période)</div><div class="big" style="color:var(--green)">${money(totCom)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Crédits de vente (période)</div><div class="big" style="color:var(--accent)">${money(totCre)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Prime moyenne par vente</div><div class="big">${totN?fmtCA2.format(totM/totN):"—"}</div></div>
   </div>
   ${totN===0?`<div class="empty">Aucune vente sur la période.<br>Les ventes s'enregistrent automatiquement quand un prospect passe au statut « Client ».</div>`:""}`;
