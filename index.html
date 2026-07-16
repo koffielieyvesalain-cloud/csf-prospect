@@ -125,28 +125,39 @@ function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 const getP=id=>state.prospects.find(p=>p.id===id);
 
 function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,montantPlace:0,
-  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null};}
+  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null,historique:[],dateRdv:null,dateRenouvellement:null};}
 
 /* ================= Logique métier ================= */
+const HICON={appel:"📞",sms:"💬",email:"✉️",relance:"🔁",contact:"✅",statut:"🏷️",rdv:"📆",note:"📝"};
+const HLBL={appel:"Appel",sms:"SMS",email:"Email",relance:"Relance",contact:"Contact",statut:"Statut",rdv:"RDV",note:"Note"};
+function logH(p,t,note){(p.historique=p.historique||[]).push({d:new Date().toISOString(),t,note:(note||"").trim()});save();}
 function setStatut(p,s){
   if(p.statut===s)return;
   p.statut=s;
   if(s==="client"&&!p.dateGain)p.dateGain=todayISO();
   if(s!=="client")p.dateGain=null;
   if(s==="client"||s==="perdu")p.prochaineRelance=null;
+  logH(p,"statut","→ "+STATUTS[s].lbl);
   save();
+}
+function renouvDue(p){
+  if(p.statut!=="client"||!p.dateRenouvellement)return false;
+  const lim=new Date();lim.setDate(lim.getDate()+30);
+  return parseD(p.dateRenouvellement)<=lim;
 }
 function relanceDue(p){return p.prochaineRelance&&EN_COURS.includes(p.statut)&&p.prochaineRelance<=todayISO();}
 function faireRelance(p){
   p.relances=(p.relances||0)+1;
   p.dernierContact=todayISO();
   p.prochaineRelance=null;
+  logH(p,"relance","Relance "+p.relances+"/3 effectuée");
   if(p.relances>=3&&p.autoPerdu){setStatut(p,"perdu");}
   else if(p.statut==="a_contacter")p.statut="contacte";
   save();
 }
 function contactFait(p){
   p.dernierContact=todayISO();
+  logH(p,"contact","Contact effectué");
   if(p.statut==="a_contacter")p.statut="contacte";
   save();
 }
@@ -185,6 +196,15 @@ function download(name,content,mime){
   const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},400);
 }
+function exportCSV(){
+  const heads=["Prénom","Nom","Société","Téléphone","Email","Statut","Produits","Prime mensuelle ($ CA)","Montant placé ($ CA)","Relances","Prochaine relance","Dernier contact","Créé le","Date de gain","RDV","Renouvellement","Notes"];
+  const rows=state.prospects.map(p=>[p.prenom,p.nom,p.societe,p.tel,p.email,STATUTS[p.statut].lbl,
+    p.produits.join(", "),p.prime||0,p.montantPlace||0,p.relances||0,p.prochaineRelance||"",
+    p.dernierContact||"",p.dateCreation||"",p.dateGain||"",p.dateRdv||"",p.dateRenouvellement||"",
+    (p.notes||"").replace(/\s+/g," ")]);
+  const csv="\uFEFF"+[heads,...rows].map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  download("csf-prospect-"+todayISO()+".csv",csv,"text/csv;charset=utf-8");
+}
 function exportJSON(){download("csf-prospect-sauvegarde-"+todayISO()+".json",JSON.stringify(state,null,2),"application/json");}
 function importJSON(file){
   const r=new FileReader();
@@ -215,6 +235,30 @@ function icsRelance(p){
   download("relance-"+(p.nom||"prospect")+"-"+d+".ics",ics,"text/calendar");
 }
 
+function icsGen(fname,summary,desc,dtstart,dtend,alarms){
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
+  const t=x=>x.replace(/([\\;,])/g,"\\$1");
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//csf-prospect//FR","BEGIN:VEVENT",
+    "UID:"+uid()+"@csf-prospect","DTSTAMP:"+stamp,"DTSTART:"+dtstart,"DTEND:"+dtend,
+    "SUMMARY:"+t(summary),"DESCRIPTION:"+t(desc),
+    ...alarms.flatMap(a=>["BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Rappel","TRIGGER:"+a,"END:VALARM"]),
+    "END:VEVENT","END:VCALENDAR"].join("\r\n");
+  download(fname,ics,"text/calendar");
+}
+const fmtDT=x=>x.getFullYear()+String(x.getMonth()+1).padStart(2,"0")+String(x.getDate()).padStart(2,"0")+"T"+String(x.getHours()).padStart(2,"0")+String(x.getMinutes()).padStart(2,"0")+"00";
+function icsRdv(p){
+  if(!p.dateRdv)return;
+  const d=new Date(p.dateRdv),e=new Date(d.getTime()+36e5);
+  icsGen("rdv-"+(p.nom||"prospect")+".ics","RDV : "+fullName(p),
+    (p.societe||"")+" — "+(p.tel||"")+" — "+(p.email||""),fmtDT(d),fmtDT(e),["-P1D","-PT2H","PT0S"]);
+  logH(p,"rdv","RDV ajouté au Calendrier ("+d.toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+")");
+}
+function icsRenouv(p){
+  if(!p.dateRenouvellement)return;
+  const dt=p.dateRenouvellement.replace(/-/g,"");
+  icsGen("renouvellement-"+(p.nom||"client")+".ics","Renouvellement : "+fullName(p),
+    "Renouvellement de police — "+(p.tel||""),dt+"T090000",dt+"T093000",["-P7D","-P1D","PT0S"]);
+}
 /* ================= Router ================= */
 let route={view:"list",id:null,edit:null};
 let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false};
@@ -241,6 +285,7 @@ function pItem(p,due){
       <div class="muted">${esc(p.societe||prod||"")}</div>
       ${due?`<div class="muted" style="color:var(--red);font-weight:600">Relance due le ${fmtDate(p.prochaineRelance)} · ${p.relances||0}/3</div>`
         :(p.prochaineRelance?`<div class="muted">Relance le ${fmtDate(p.prochaineRelance)}</div>`:"")}
+      ${renouvDue(p)?`<div class="muted" style="color:var(--orange);font-weight:600">Renouvellement le ${fmtDate(p.dateRenouvellement)}</div>`:""}
     </div>
     <div class="right">
       ${montantsHTML(p)}
@@ -255,37 +300,38 @@ function matchSearch(p,q){
 }
 function viewList(){
   const q=ui.search,f=ui.filtre;
-  let ps=state.prospects.filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f));
-  const dues=state.prospects.filter(relanceDue).filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f))
-    .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
-  const dueIds=new Set(dues.map(p=>p.id));
-  ps=ps.filter(p=>!dueIds.has(p.id)).sort((a,b)=>fullName(a).localeCompare(fullName(b),"fr"));
   const chips=[["tous","Tous"],...Object.entries(STATUTS).map(([k,v])=>[k,v.lbl])];
   return `<h1>Prospects</h1>
     <input type="search" placeholder="Rechercher nom, société ou produit…" value="${esc(q)}"
       oninput="ui.search=this.value;refreshList()">
     <div class="chips" style="margin-top:9px">${chips.map(([k,l])=>
       `<button class="chip ${f===k?"on":""}" onclick="ui.filtre='${k}';render()">${l}</button>`).join("")}</div>
-    <div id="listZone">${listZone(dues,ps)}</div>
+    <div id="listZone">${listZone()}</div>
     <button class="fab" onclick="go('form')">+</button>`;
 }
-function listZone(dues,ps){
+function listZone(){
+  const q=ui.search,f=ui.filtre;
+  const match=p=>matchSearch(p,q)&&(f==="tous"||p.statut===f);
+  const dues=state.prospects.filter(relanceDue).filter(match)
+    .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
+  const dueIds=new Set(dues.map(p=>p.id));
+  const rens=state.prospects.filter(p=>renouvDue(p)&&!dueIds.has(p.id)).filter(match)
+    .sort((a,b)=>a.dateRenouvellement<b.dateRenouvellement?-1:1);
+  const renIds=new Set(rens.map(p=>p.id));
+  const ps=state.prospects.filter(match).filter(p=>!dueIds.has(p.id)&&!renIds.has(p.id))
+    .sort((a,b)=>fullName(a).localeCompare(fullName(b),"fr"));
   let h="";
   if(dues.length)h+=`<h2 style="color:var(--red)">🔔 Relances à faire (${dues.length})</h2>
     <div class="plist">${dues.map(p=>pItem(p,true)).join("")}</div>`;
-  h+=dues.length?`<h2>Tous les prospects</h2>`:"";
-  h+=ps.length?`<div class="plist" style="margin-top:${dues.length?0:14}px">${ps.map(p=>pItem(p,false)).join("")}</div>`
-    :(dues.length?"":`<div class="empty">Aucun prospect${ui.search||ui.filtre!=="tous"?" ne correspond à la recherche":""}.<br><br>Touchez <b>+</b> pour ajouter votre premier prospect.</div>`);
+  if(rens.length)h+=`<h2 style="color:var(--orange)">🔁 Renouvellements à venir (${rens.length})</h2>
+    <div class="plist">${rens.map(p=>pItem(p,false)).join("")}</div>`;
+  h+=(dues.length||rens.length)?`<h2>Tous les prospects</h2>`:"";
+  h+=ps.length?`<div class="plist" style="margin-top:${(dues.length||rens.length)?0:14}px">${ps.map(p=>pItem(p,false)).join("")}</div>`
+    :((dues.length||rens.length)?"":`<div class="empty">Aucun prospect${ui.search||ui.filtre!=="tous"?" ne correspond à la recherche":""}.<br><br>Touchez <b>+</b> pour ajouter votre premier prospect.</div>`);
   return h;
 }
 function refreshList(){
-  const q=ui.search,f=ui.filtre;
-  let ps=state.prospects.filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f));
-  const dues=state.prospects.filter(relanceDue).filter(p=>matchSearch(p,q)&&(f==="tous"||p.statut===f))
-    .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
-  const dueIds=new Set(dues.map(p=>p.id));
-  ps=ps.filter(p=>!dueIds.has(p.id)).sort((a,b)=>fullName(a).localeCompare(fullName(b),"fr"));
-  const z=document.getElementById("listZone");if(z)z.innerHTML=listZone(dues,ps);
+  const z=document.getElementById("listZone");if(z)z.innerHTML=listZone();
 }
 
 /* ================= Vue : formulaire ajout / édition ================= */
@@ -355,8 +401,8 @@ function viewDetail(){
     ${+p.montantPlace?`<div class="big" style="margin-top:2px;color:var(--purple)">${money(p.montantPlace)}<span class="muted" style="font-size:.5em;font-weight:400"> placé (épargne)</span></div>`:""}
   </div>
   <div class="actions3">
-    ${tel?`<a href="tel:${tel}">📞 Appeler</a><a href="sms:${tel}">💬 SMS</a>`:`<a style="opacity:.35;pointer-events:none">📞 Appeler</a><a style="opacity:.35;pointer-events:none">💬 SMS</a>`}
-    ${p.email?`<a href="mailto:${esc(p.email)}">✉️ Email</a>`:`<a style="opacity:.35;pointer-events:none">✉️ Email</a>`}
+    ${tel?`<a href="tel:${tel}" onclick="logH(getP('${p.id}'),'appel')">📞 Appeler</a><a href="sms:${tel}" onclick="logH(getP('${p.id}'),'sms')">💬 SMS</a>`:`<a style="opacity:.35;pointer-events:none">📞 Appeler</a><a style="opacity:.35;pointer-events:none">💬 SMS</a>`}
+    ${p.email?`<a href="mailto:${esc(p.email)}" onclick="logH(getP('${p.id}'),'email')">✉️ Email</a>`:`<a style="opacity:.35;pointer-events:none">✉️ Email</a>`}
   </div>
 
   <h2>Statut</h2>
@@ -387,6 +433,19 @@ function viewDetail(){
     </label>
   </div>
 
+  ${p.statut==="rdv"?`<h2>Rendez-vous</h2>
+  <div class="card">
+    <label class="field"><span class="lbl">Date et heure du RDV</span>
+      <input type="datetime-local" value="${p.dateRdv||""}" onchange="getP('${p.id}').dateRdv=this.value||null;save();render()"></label>
+    ${p.dateRdv?`<button class="sec small" style="width:100%" onclick="icsRdv(getP('${p.id}'));render()">📅 Ajouter le RDV au Calendrier (.ics)</button>`:""}
+  </div>`:""}
+  ${p.statut==="client"?`<h2>Renouvellement de police</h2>
+  <div class="card">
+    ${renouvDue(p)?`<div class="warn" style="margin-top:0">🔁 Renouvellement ${p.dateRenouvellement<todayISO()?"<b>dépassé</b>":"à venir"} : ${fmtDate(p.dateRenouvellement)}</div>`:""}
+    <label class="field"><span class="lbl">Date de renouvellement de la police</span>
+      <input type="date" value="${p.dateRenouvellement||""}" onchange="getP('${p.id}').dateRenouvellement=this.value||null;save();render()"></label>
+    ${p.dateRenouvellement?`<button class="sec small" style="width:100%" onclick="icsRenouv(getP('${p.id}'))">📅 Rappel au Calendrier (.ics)</button>`:""}
+  </div>`:""}
   <h2>Coordonnées & infos</h2>
   <div class="card">
     <div class="kv"><span class="k">Téléphone</span><span>${p.tel?`<a class="link" href="tel:${tel}">${esc(p.tel)}</a>`:"—"}</span></div>
@@ -395,6 +454,21 @@ function viewDetail(){
     <div class="kv"><span class="k">Créé le</span><span>${fmtDate(p.dateCreation)}</span></div>
     <div class="kv"><span class="k">Dernier contact</span><span>${p.dernierContact?fmtDate(p.dernierContact):"Jamais"}</span></div>
     ${p.notes?`<div style="padding-top:10px"><span class="muted">Notes</span><div style="white-space:pre-wrap;margin-top:4px">${esc(p.notes)}</div></div>`:""}
+  </div>
+  <h2>Historique des interactions</h2>
+  <div class="card">
+    ${(p.historique||[]).length?(p.historique||[]).slice().reverse().slice(0,50).map(e=>
+      `<div class="kv"><span class="k" style="white-space:nowrap">${HICON[e.t]||"📝"} ${new Date(e.d).toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+       <span class="right" style="max-width:62%">${esc(e.note||HLBL[e.t]||e.t)}</span></div>`).join("")
+      :`<div class="muted">Aucune interaction enregistrée. Les appels, SMS, emails, relances et changements de statut s'ajoutent automatiquement.</div>`}
+    <div class="row" style="margin-top:12px">
+      <select id="hType" class="grow">
+        <option value="note">📝 Note</option><option value="appel">📞 Appel</option><option value="sms">💬 SMS</option>
+        <option value="email">✉️ Email</option><option value="rdv">📆 RDV</option>
+      </select>
+      <button class="small" onclick="logH(getP('${p.id}'),document.getElementById('hType').value,document.getElementById('hNote').value);render()">Ajouter</button>
+    </div>
+    <input id="hNote" placeholder="Détail (facultatif)…" style="margin-top:8px">
   </div>
   <div class="row" style="margin-top:14px">
     <button class="sec grow" onclick="route={view:'form',id:'${p.id}'};render();window.scrollTo(0,0)">Modifier</button>
@@ -440,8 +514,9 @@ function viewDash(){
       <button class="ghost" onclick="if(confirm('Supprimer cet objectif ?')){state.objectifs=state.objectifs.filter(x=>x.id!=='${o.id}');save();render()}">🗑</button></div>`;}).join("")}</div>`:""}
   <h2>Sauvegarde</h2>
   <div class="row">
-    <button class="sec grow" onclick="exportJSON()">⬇︎ Exporter (JSON)</button>
+    <button class="sec grow" onclick="exportJSON()">⬇︎ Sauvegarde JSON</button>
     <button class="sec grow" onclick="document.getElementById('importFile').click()">⬆︎ Importer</button>
+    <button class="sec grow" onclick="exportCSV()">📊 Export CSV</button>
   </div>
   <div class="muted" style="margin-top:10px;font-size:.78em">Données stockées uniquement sur cet appareil. Exportez régulièrement une sauvegarde.</div>
   ${ui.showObjForm?objForm():""}`;
