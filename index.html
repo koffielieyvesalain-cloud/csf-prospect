@@ -87,6 +87,13 @@ label.field span.lbl{display:block;font-size:.82em;color:var(--text2);margin-bot
 .kv:last-child{border-bottom:none}
 .kv .k{color:var(--text2)}
 a.link{color:var(--accent);text-decoration:none;word-break:break-all}
+.emojirain{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:hidden}
+.emojirain span{position:absolute;top:-12vh;animation:echute linear forwards}
+@keyframes echute{0%{transform:translateY(0) rotate(-20deg);opacity:1}85%{opacity:1}100%{transform:translateY(125vh) rotate(25deg);opacity:0}}
+.ebanner{position:fixed;top:18%;left:50%;transform:translateX(-50%) scale(.6);z-index:201;pointer-events:none;
+  font-size:1.15em;font-weight:700;background:var(--card);border-radius:30px;padding:13px 24px;
+  box-shadow:0 6px 30px rgba(0,0,0,.35);opacity:0;animation:epop 2.6s ease forwards;white-space:nowrap}
+@keyframes epop{0%{opacity:0;transform:translateX(-50%) scale(.6)}12%{opacity:1;transform:translateX(-50%) scale(1.06)}20%{transform:translateX(-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) scale(.95)}}
 </style>
 </head>
 <body>
@@ -131,6 +138,27 @@ function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:
 const HICON={appel:"📞",sms:"💬",email:"✉️",relance:"🔁",contact:"✅",statut:"🏷️",rdv:"📆",note:"📝"};
 const HLBL={appel:"Appel",sms:"SMS",email:"Email",relance:"Relance",contact:"Contact",statut:"Statut",rdv:"RDV",note:"Note"};
 function logH(p,t,note){(p.historique=p.historique||[]).push({d:new Date().toISOString(),t,note:(note||"").trim()});save();}
+function fete(type){
+  if(typeof document==="undefined"||!document.body||!document.body.appendChild)return;
+  try{
+    const win=type==="win";
+    const set=win?["🎉","🥳","💰","🏆","✨","🍾","💵"]:["😢","😭","💧","☔"];
+    const zone=document.createElement("div");zone.className="emojirain";
+    for(let i=0;i<(win?34:22);i++){
+      const e=document.createElement("span");
+      e.textContent=set[Math.floor(Math.random()*set.length)];
+      e.style.left=Math.random()*96+"%";
+      e.style.fontSize=(20+Math.random()*26)+"px";
+      e.style.animationDuration=(1.6+Math.random()*1.6)+"s";
+      e.style.animationDelay=(Math.random()*0.9)+"s";
+      zone.appendChild(e);
+    }
+    const b=document.createElement("div");b.className="ebanner";
+    b.textContent=win?"🎉 Félicitations, vente conclue !":"😢 Prospect perdu… au suivant !";
+    document.body.appendChild(zone);document.body.appendChild(b);
+    setTimeout(()=>{zone.remove();b.remove();},4200);
+  }catch(err){}
+}
 function setStatut(p,s){
   if(p.statut===s)return;
   p.statut=s;
@@ -138,6 +166,8 @@ function setStatut(p,s){
   if(s!=="client")p.dateGain=null;
   if(s==="client"||s==="perdu")p.prochaineRelance=null;
   logH(p,"statut","→ "+STATUTS[s].lbl);
+  if(s==="client")fete("win");
+  if(s==="perdu")fete("lose");
   save();
 }
 function relanceDue(p){return p.prochaineRelance&&EN_COURS.includes(p.statut)&&p.prochaineRelance<=todayISO();}
