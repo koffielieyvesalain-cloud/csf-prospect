@@ -124,7 +124,7 @@ function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.is
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 const getP=id=>state.prospects.find(p=>p.id===id);
 
-function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,
+function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,montantPlace:0,
   statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null};}
 
 /* ================= Logique métier ================= */
@@ -152,6 +152,12 @@ function contactFait(p){
 }
 function fullName(p){return(p.prenom+" "+p.nom).trim()||"(sans nom)";}
 function initials(p){return((p.prenom[0]||"")+(p.nom[0]||"")).toUpperCase()||"?";}
+function montantsHTML(p,small){
+  let h="";
+  if(+p.prime||!+p.montantPlace)h+=`<div style="font-weight:700">${money(p.prime)}</div>`;
+  if(+p.montantPlace)h+=`<div style="font-weight:700;color:var(--purple)">${money(p.montantPlace)}<span class="muted" style="font-size:.68em;font-weight:400"> placé</span></div>`;
+  return h;
+}
 function avColor(p){let h=0;for(const c of p.id)h=(h*31+c.charCodeAt(0))>>>0;return AVCOLORS[h%AVCOLORS.length];}
 
 /* ================= Statistiques ================= */
@@ -163,7 +169,10 @@ function stats(){
   const taux=dec?Math.round(cl.length/dec*100):null;
   const delais=cl.filter(p=>p.dateGain&&p.dateCreation).map(p=>daysBetween(p.dateCreation,p.dateGain));
   const delai=delais.length?Math.round(delais.reduce((a,b)=>a+b,0)/delais.length):null;
-  return{gagne:sum(cl),pot:sum(ec),perdu:sum(pe),nCl:cl.length,nEc:ec.length,nPe:pe.length,taux,delai};
+  const sumP=a=>a.reduce((t,p)=>t+(+p.montantPlace||0),0);
+  const nP=a=>a.filter(p=>+p.montantPlace>0).length;
+  return{gagne:sum(cl),pot:sum(ec),perdu:sum(pe),nCl:cl.length,nEc:ec.length,nPe:pe.length,taux,delai,
+    plGagne:sumP(cl),plPot:sumP(ec),plPerdu:sumP(pe),nPlCl:nP(cl),nPlEc:nP(ec),nPlPe:nP(pe)};
 }
 function objProgress(o){
   return state.prospects.filter(p=>p.statut==="client"&&p.dateGain&&p.dateGain>=o.dateDebut&&p.dateGain<=o.dateFin)
@@ -234,7 +243,7 @@ function pItem(p,due){
         :(p.prochaineRelance?`<div class="muted">Relance le ${fmtDate(p.prochaineRelance)}</div>`:"")}
     </div>
     <div class="right">
-      <div style="font-weight:700">${money(p.prime)}</div>
+      ${montantsHTML(p)}
       ${badge(p.statut)}
     </div>
   </div>`;
@@ -304,6 +313,8 @@ function viewForm(){
     <div class="card">
       <label class="field"><span class="lbl">Prime mensuelle estimée ($ CA)</span>
         <input name="prime" type="number" inputmode="decimal" min="0" step="1" value="${p.prime||""}" placeholder="0"></label>
+      <label class="field"><span class="lbl">Montant placé / à placer — épargne ($ CA)</span>
+        <input name="montantPlace" type="number" inputmode="decimal" min="0" step="1" value="${p.montantPlace||""}" placeholder="0"></label>
       <label class="field"><span class="lbl">Statut</span>
         <select name="statut">${Object.entries(STATUTS).map(([k,v])=>`<option value="${k}" ${p.statut===k?"selected":""}>${v.lbl}</option>`).join("")}</select></label>
       <label class="field" style="margin-bottom:0"><span class="lbl">Prochaine relance</span>
@@ -318,6 +329,7 @@ function submitForm(e,id){
   ["prenom","nom","societe","tel","email","notes"].forEach(k=>p[k]=f[k].value.trim());
   p.produits=[...f.querySelectorAll('input[name=produits]:checked')].map(c=>c.value);
   p.prime=parseFloat(f.prime.value)||0;
+  p.montantPlace=parseFloat(f.montantPlace.value)||0;
   p.prochaineRelance=f.prochaineRelance.value||null;
   if(!p.prenom&&!p.nom){alert("Indiquez au moins un prénom ou un nom.");return false;}
   const st=f.statut.value;
@@ -339,7 +351,8 @@ function viewDetail(){
     <div style="font-size:1.35em;font-weight:700">${esc(fullName(p))}</div>
     ${p.societe?`<div class="muted">${esc(p.societe)}</div>`:""}
     <div style="margin:8px 0 4px">${badge(p.statut)}</div>
-    <div class="big" style="margin-top:4px">${money(p.prime)}<span class="muted" style="font-size:.5em;font-weight:400"> /mois</span></div>
+    ${+p.prime||!+p.montantPlace?`<div class="big" style="margin-top:4px">${money(p.prime)}<span class="muted" style="font-size:.5em;font-weight:400"> /mois</span></div>`:""}
+    ${+p.montantPlace?`<div class="big" style="margin-top:2px;color:var(--purple)">${money(p.montantPlace)}<span class="muted" style="font-size:.5em;font-weight:400"> placé (épargne)</span></div>`:""}
   </div>
   <div class="actions3">
     ${tel?`<a href="tel:${tel}">📞 Appeler</a><a href="sms:${tel}">💬 SMS</a>`:`<a style="opacity:.35;pointer-events:none">📞 Appeler</a><a style="opacity:.35;pointer-events:none">💬 SMS</a>`}
@@ -409,6 +422,13 @@ function viewDash(){
     <div class="card" style="margin:0"><div class="muted">Taux de conversion</div><div class="big" style="color:${tauxColor}">${s.taux===null?"—":s.taux+" %"}</div>
       <div class="muted" style="font-size:.75em">${s.delai!==null?"Délai moyen : "+s.delai+" j":"gagnés / décidés"}</div></div>
   </div>
+  <h2>Épargne — montants placés</h2>
+  <div class="statgrid">
+    <div class="card" style="margin:0"><div class="muted">Placés · ${s.nPlCl} client${s.nPlCl>1?"s":""}</div><div class="big" style="color:var(--purple)">${money(s.plGagne)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Potentiels · ${s.nPlEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.plPot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Perdus · ${s.nPlPe} perdu${s.nPlPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.plPerdu)}</div></div>
+  </div>
+  <div class="muted" style="font-size:.78em;margin:-2px 2px 0">L'épargne n'a pas de prime : on suit ici les montants placés.</div>
   <h2>Répartition des prospects</h2>
   <div class="card">${rep}</div>
   <h2>Objectifs</h2>
@@ -495,21 +515,21 @@ function viewVentes(){
   const buckets=[];
   for(let i=n-1;i>=0;i--){
     const s=bucketStart(mode,i),e=bucketStart(mode,i-1);
-    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0});
+    buckets.push({s,e,lbl:bucketLabel(mode,s),montant:0,nombre:0,place:0});
   }
   const ventes=state.prospects.filter(p=>p.statut==="client"&&p.dateGain);
-  let totM=0,totN=0;
+  let totM=0,totN=0,totPl=0;
   for(const p of ventes){
     const g=parseD(p.dateGain);
-    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.nombre++;totM+=(+p.prime||0);totN++;break;}
+    for(const b of buckets)if(g>=b.s&&g<b.e){b.montant+=(+p.prime||0);b.place+=(+p.montantPlace||0);b.nombre++;totM+=(+p.prime||0);totPl+=(+p.montantPlace||0);totN++;break;}
   }
-  const vals=buckets.map(b=>metric==="montant"?b.montant:b.nombre);
+  const vals=buckets.map(b=>metric==="montant"?b.montant:metric==="place"?b.place:b.nombre);
   const max=Math.max(...vals,1);
   const showEvery=Math.ceil(buckets.length/8);
   const bars=buckets.map((b,i)=>{
     const v=vals[i],h=Math.round(v/max*145);
     return `<div class="barcol">
-      ${v?`<div class="barval">${metric==="montant"?money(v):v}</div>`:""}
+      ${v?`<div class="barval">${metric==="nombre"?v:money(v)}</div>`:""}
       <div class="bar" style="height:${h}px;${v?"":"background:var(--line);"}"></div>
       <div class="barlbl">${i%showEvery===0||i===buckets.length-1?b.lbl:""}</div>
     </div>`;}).join("");
@@ -523,6 +543,7 @@ function viewVentes(){
     </select>
     <select class="grow" onchange="ui.vMetric=this.value;render()">
       <option value="montant" ${metric==="montant"?"selected":""}>Primes ($ CA)</option>
+      <option value="place" ${metric==="place"?"selected":""}>Montants placés (épargne)</option>
       <option value="nombre" ${metric==="nombre"?"selected":""}>Nombre de ventes</option>
     </select>
   </div>
@@ -531,7 +552,8 @@ function viewVentes(){
   <div class="statgrid">
     <div class="card" style="margin:0"><div class="muted">Primes gagnées</div><div class="big" style="color:var(--green)">${money(totM)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Ventes conclues</div><div class="big">${totN}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Prime moyenne par vente</div><div class="big">${totN?fmtCA2.format(totM/totN):"—"}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Montants placés (épargne)</div><div class="big" style="color:var(--purple)">${money(totPl)}</div></div>
+    <div class="card" style="margin:0"><div class="muted">Prime moyenne par vente</div><div class="big">${totN?fmtCA2.format(totM/totN):"—"}</div></div>
   </div>
   ${totN===0?`<div class="empty">Aucune vente sur la période.<br>Les ventes s'enregistrent automatiquement quand un prospect passe au statut « Client ».</div>`:""}`;
 }
