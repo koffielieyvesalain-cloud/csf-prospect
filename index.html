@@ -57,7 +57,7 @@ label.field span.lbl{display:block;font-size:.82em;color:var(--text2);margin-bot
 .tabbar svg{width:25px;height:25px}
 .fab{position:fixed;right:18px;bottom:calc(78px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;font-size:30px;font-weight:400;
   display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:40;padding:0}
-.pitem{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.pitem{display:flex;align-items:flex-start;gap:10px;padding:14px;border-bottom:1px solid var(--line);cursor:pointer}
 .pitem:last-child{border-bottom:none}
 .plist{background:var(--card);border-radius:14px;overflow:hidden;margin-bottom:10px}
 .avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex:0 0 auto;font-size:.95em}
@@ -87,6 +87,8 @@ label.field span.lbl{display:block;font-size:.82em;color:var(--text2);margin-bot
 .kv:last-child{border-bottom:none}
 .kv .k{color:var(--text2)}
 a.link{color:var(--accent);text-decoration:none;word-break:break-all}
+.pinfos{font-size:.72em;color:var(--text2);margin-top:5px;line-height:1.6}
+.pinfos b{color:var(--text)}
 .emojirain{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:hidden}
 .emojirain span{position:absolute;top:-12vh;animation:echute linear forwards}
 @keyframes echute{0%{transform:translateY(0) rotate(-20deg);opacity:1}85%{opacity:1}100%{transform:translateY(125vh) rotate(25deg);opacity:0}}
@@ -305,15 +307,26 @@ function renderTabbar(){
 
 /* ================= Vue : liste des prospects ================= */
 function badge(s){const st=STATUTS[s];return `<span class="badge" style="background:${st.color}">${st.lbl}</span>`;}
+function pInfos(p){
+  const bits=[];
+  if(p.tel)bits.push("📞 "+esc(p.tel));
+  if(p.produits.length)bits.push("🏷️ "+esc(p.produits.slice(0,3).join(", "))+(p.produits.length>3?"…":""));
+  if(+p.prime)bits.push("Prime <b>"+money(p.prime)+"</b>/mois");
+  if(+p.montantPlace)bits.push("Épargne <b>"+money(p.montantPlace)+"</b>");
+  if(commission(p)>0)bits.push("Comm. <b>"+money(commission(p))+"</b>");
+  if(creditVente(p)>0)bits.push("Crédit <b>"+money(creditVente(p))+"</b>");
+  bits.push(p.dernierContact?"Contacté le "+fmtDate(p.dernierContact):"Jamais contacté");
+  return `<div class="pinfos">${bits.join(" · ")}</div>`;
+}
 function pItem(p,due){
-  const prod=p.produits.length?p.produits.slice(0,2).join(", ")+(p.produits.length>2?"…":""):"";
   return `<div class="pitem ${due?"due":""}" onclick="go('detail','${p.id}')">
     <div class="avatar" style="background:${avColor(p)}">${esc(initials(p))}</div>
     <div class="grow">
       <div style="font-weight:600">${esc(fullName(p))}</div>
-      <div class="muted">${esc(p.societe||prod||"")}</div>
+      ${p.societe?`<div class="muted">${esc(p.societe)}</div>`:""}
       ${due?`<div class="muted" style="color:var(--red);font-weight:600">Relance due le ${fmtDate(p.prochaineRelance)} · ${p.relances||0}/3</div>`
         :(p.prochaineRelance?`<div class="muted">Relance le ${fmtDate(p.prochaineRelance)}</div>`:"")}
+      ${pInfos(p)}
     </div>
     <div class="right">
       ${montantsHTML(p)}
