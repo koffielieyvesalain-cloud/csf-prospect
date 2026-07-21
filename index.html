@@ -145,7 +145,7 @@ function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 const getP=id=>state.prospects.find(p=>p.id===id);
 
 function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,montantPlace:0,
-  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null,historique:[],dateRdv:null,heureRelance:null};}
+  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,existant:false,autoPerdu:true,dateGain:null,historique:[],dateRdv:null,heureRelance:null};}
 
 /* ================= Logique métier ================= */
 const HICON={appel:"📞",sms:"💬",email:"✉️",relance:"🔁",contact:"✅",statut:"🏷️",rdv:"📆",note:"📝"};
@@ -220,8 +220,9 @@ function stats(){
   const ps=state.prospects;
   const cl=ps.filter(p=>p.statut==="client"),pe=ps.filter(p=>p.statut==="perdu"),ec=ps.filter(p=>EN_COURS.includes(p.statut));
   const sum=a=>a.reduce((t,p)=>t+(+p.prime||0),0);
-  const dec=cl.length+pe.length;
-  const taux=dec?Math.round(cl.length/dec*100):null;
+  const clConv=cl.filter(p=>!p.existant);
+  const dec=clConv.length+pe.length;
+  const taux=dec?Math.round(clConv.length/dec*100):null;
   const delais=cl.filter(p=>p.dateGain&&p.dateCreation).map(p=>daysBetween(p.dateCreation,p.dateGain));
   const delai=delais.length?Math.round(delais.reduce((a,b)=>a+b,0)/delais.length):null;
   const sumP=a=>a.reduce((t,p)=>t+(+p.montantPlace||0),0);
@@ -304,13 +305,13 @@ function icsRdv(p){
   logH(p,"rdv","RDV ajouté au Calendrier ("+d.toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+")");
 }
 /* ================= Router ================= */
-let route={view:"list",id:null,edit:null};
-let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false,agDate:todayISO(),agMode:"jour"};
+let route={view:"agenda",id:null,edit:null};
+let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false,agDate:todayISO(),agMode:"jour",catFiltre:null};
 function go(view,id){if(view==="agenda"&&route.view!=="agenda"){ui.agDate=todayISO();ui.agMode="jour";}route={view,id:id||null};window.scrollTo(0,0);render();}
 const TABS=[
-  {id:"list",lbl:"Prospects",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.3c2.8.2 4.8 1.7 5.5 4.7"/></svg>'},
   {id:"agenda",lbl:"Agenda",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg>'},
-  {id:"dash",lbl:"Tableau de bord",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.5"/><rect x="13.5" y="12" width="7.5" height="9" rx="1.5"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="1.5"/></svg>'},
+  {id:"list",lbl:"Prospects",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.3c2.8.2 4.8 1.7 5.5 4.7"/></svg>'},
+    {id:"dash",lbl:"Tableau de bord",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.5"/><rect x="13.5" y="12" width="7.5" height="9" rx="1.5"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="1.5"/></svg>'},
   {id:"ventes",lbl:"Ventes",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>'}
 ];
 function renderTabbar(){
@@ -329,6 +330,7 @@ function pInfos(p){
   if(+p.montantPlace)bits.push("Épargne <b>"+money(p.montantPlace)+"</b>");
   if(commission(p)>0)bits.push("Comm. <b>"+money(commission(p))+"</b>");
   if(creditVente(p)>0)bits.push("Crédit <b>"+money(creditVente(p))+"</b>");
+  if(p.existant)bits.push("🤝 Client existant");
   bits.push(p.dernierContact?"Contacté le "+fmtDate(p.dernierContact):"Jamais contacté");
   return `<div class="pinfos">${bits.join(" · ")}</div>`;
 }
@@ -349,7 +351,10 @@ function pItem(p,due){
   </div>`;
 }
 function matchFiltre(p,f){return f==="tous"?true:f==="en_cours"?EN_COURS.includes(p.statut):p.statut===f;}
-function goFiltre(f){ui.filtre=f;ui.search="";go("list");}
+function matchCat(p){const c=ui.catFiltre;if(!c)return true;
+  if(c==="prime")return +p.prime>0;if(c==="epargne")return +p.montantPlace>0;
+  if(c==="argent")return +p.prime>0||+p.montantPlace>0;return true;}
+function goFiltre(f,cat){ui.filtre=f;ui.catFiltre=cat||null;ui.search="";go("list");}
 function matchSearch(p,q){
   if(!q)return true;q=q.toLowerCase();
   return fullName(p).toLowerCase().includes(q)||(p.societe||"").toLowerCase().includes(q)
@@ -362,13 +367,14 @@ function viewList(){
     <input type="search" placeholder="Rechercher nom, société ou produit…" value="${esc(q)}"
       oninput="ui.search=this.value;refreshList()">
     <div class="chips" style="margin-top:9px">${chips.map(([k,l])=>
-      `<button class="chip ${f===k?"on":""}" onclick="ui.filtre='${k}';render()">${l}</button>`).join("")}</div>
+      `<button class="chip ${f===k?"on":""}" onclick="ui.filtre='${k}';ui.catFiltre=null;render()">${l}</button>`).join("")}</div>
+    ${ui.catFiltre?`<div class="warn" style="margin:8px 0 0;display:flex;align-items:center;gap:8px"><span class="grow">Filtre : uniquement les fiches ${({prime:"avec prime (assurance)",epargne:"avec épargne",argent:"avec montants"})[ui.catFiltre]}</span><button class="ghost small" onclick="ui.catFiltre=null;render()">✕ retirer</button></div>`:""}
     <div id="listZone">${listZone()}</div>
     <button class="fab" onclick="go('form')">+</button>`;
 }
 function listZone(){
   const q=ui.search,f=ui.filtre;
-  const match=p=>matchSearch(p,q)&&matchFiltre(p,f);
+  const match=p=>matchSearch(p,q)&&matchFiltre(p,f)&&matchCat(p);
   const dues=state.prospects.filter(relanceDue).filter(match)
     .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
   const dueIds=new Set(dues.map(p=>p.id));
@@ -394,6 +400,11 @@ function viewForm(){
   <h1>${isNew?"Nouveau prospect":"Modifier"}</h1>
   <form onsubmit="return submitForm(event,'${isNew?"":p.id}')">
     <div class="card">
+      <label class="field"><span class="lbl">Type de fiche</span>
+        <select name="typeFiche">
+          <option value="prospect" ${!p.existant?"selected":""}>🎯 Prospect (à convertir)</option>
+          <option value="existant" ${p.existant?"selected":""}>🤝 Client existant (suivi)</option>
+        </select></label>
       <div class="row">
         <label class="field grow"><span class="lbl">Prénom</span><input name="prenom" value="${esc(p.prenom)}" autocomplete="off"></label>
         <label class="field grow"><span class="lbl">Nom</span><input name="nom" value="${esc(p.nom)}" autocomplete="off"></label>
@@ -430,9 +441,15 @@ function submitForm(e,id){
   p.montantPlace=parseFloat(f.montantPlace.value)||0;
   p.prochaineRelance=f.prochaineRelance.value||null;
   if(!p.prenom&&!p.nom){alert("Indiquez au moins un prénom ou un nom.");return false;}
+  p.existant=f.typeFiche.value==="existant";
   const st=f.statut.value;
   if(!id)state.prospects.push(p);
-  setStatut(p,st)||save();
+  if(p.existant){
+    if(p.statut!=="client"){p.statut="client";logH(p,"note","Client existant — ajouté pour suivi");}
+    save();
+  }else{
+    setStatut(p,st)||save();
+  }
   go("detail",p.id);
   return false;
 }
@@ -448,7 +465,7 @@ function viewDetail(){
     <div class="avatar" style="background:${avColor(p)};width:64px;height:64px;font-size:1.4em;margin:0 auto 10px">${esc(initials(p))}</div>
     <div style="font-size:1.35em;font-weight:700">${esc(fullName(p))}</div>
     ${p.societe?`<div class="muted">${esc(p.societe)}</div>`:""}
-    <div style="margin:8px 0 4px">${badge(p.statut)}</div>
+    <div style="margin:8px 0 4px">${badge(p.statut)}${p.existant?` <span class="badge" style="background:var(--gray)">🤝 Existant</span>`:""}</div>
     ${+p.prime||!+p.montantPlace?`<div class="big" style="margin-top:4px">${money(p.prime)}<span class="muted" style="font-size:.5em;font-weight:400"> /mois</span></div>`:""}
     ${+p.montantPlace?`<div class="big" style="margin-top:2px;color:var(--purple)">${money(p.montantPlace)}<span class="muted" style="font-size:.5em;font-weight:400"> placé (épargne)</span></div>`:""}
     ${commission(p)>0?`<div class="muted" style="margin-top:6px">Commission ${p.statut==="client"?"touchée":"estimée"} : <b style="color:var(--green)">${money(commission(p))}</b></div>`:""}
@@ -541,31 +558,31 @@ function viewDash(){
   return `<h1>Tableau de bord</h1>
   <h2>Primes mensuelles</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Gagnées · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.gagne)}</div></div>
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentielles · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.pot)}</div></div>
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Perdues · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.perdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client','prime')"><div class="muted">Gagnées · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.gagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours','prime')"><div class="muted">Potentielles · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.pot)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('perdu','prime')"><div class="muted">Perdues · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.perdu)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Taux de conversion</div><div class="big" style="color:${tauxColor}">${s.taux===null?"—":s.taux+" %"}</div>
       <div class="muted" style="font-size:.75em">${s.delai!==null?"Délai moyen : "+s.delai+" j":"gagnés / décidés"}</div></div>
   </div>
   <h2>Épargne — montants placés</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Placés · ${s.nPlCl} client${s.nPlCl>1?"s":""} ›</div><div class="big" style="color:var(--purple)">${money(s.plGagne)}</div></div>
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentiels · ${s.nPlEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.plPot)}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Perdus · ${s.nPlPe} perdu${s.nPlPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.plPerdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client','epargne')"><div class="muted">Placés · ${s.nPlCl} client${s.nPlCl>1?"s":""} ›</div><div class="big" style="color:var(--purple)">${money(s.plGagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours','epargne')"><div class="muted">Potentiels · ${s.nPlEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.plPot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu','epargne')"><div class="muted">Perdus · ${s.nPlPe} perdu${s.nPlPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.plPerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">L'épargne n'a pas de prime : on suit ici les montants placés.</div>
   <h2>Commissions</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Touchées · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.comGagne)}</div></div>
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentielles · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.comPot)}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Manquées · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.comPerdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client','argent')"><div class="muted">Touchées · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.comGagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours','argent')"><div class="muted">Potentielles · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.comPot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu','argent')"><div class="muted">Manquées · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.comPerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">Assurance : prime ÷ 0,09 ÷ 2 + 175 % · Épargne : 4 % du montant placé.</div>
   <h2>Crédits de vente</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Touchés · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.creGagne)}</div></div>
-    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentiels · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.crePot)}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Manqués · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.crePerdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client','argent')"><div class="muted">Touchés · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.creGagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours','argent')"><div class="muted">Potentiels · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.crePot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu','argent')"><div class="muted">Manqués · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.crePerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">Assurance : prime ÷ 0,09 ÷ 2 × 2,5 · Épargne : 2,5 % du montant placé.</div>
   <h2>Répartition des prospects</h2>
@@ -799,7 +816,8 @@ function viewAgenda(){
   <div class="seg">${Object.entries(modeLbls).map(([k,l])=>
     `<button class="${mode===k?"on":""}" onclick="ui.agMode='${k}';render()">${l}</button>`).join("")}</div>
   ${nav}
-  ${body}`;
+  ${body}
+  <button class="fab" onclick="go('form')">+</button>`;
 }
 function navBar(lbl,fPrev,fNext,unit){
   const prev=unit==="m"?"agMois(-1)":"ui.agDate=addDays(ui.agDate,"+fPrev()+");render()";
