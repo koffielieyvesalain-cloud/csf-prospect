@@ -88,6 +88,15 @@ label.field span.lbl{display:block;font-size:.82em;color:var(--text2);margin-bot
 .kv .k{color:var(--text2)}
 a.link{color:var(--accent);text-decoration:none;word-break:break-all}
 .pinfos{font-size:.72em;color:var(--text2);margin-top:5px;line-height:1.6}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calhead{font-size:.68em;color:var(--text2);text-align:center;padding:2px 0;font-weight:600}
+.calcell{background:var(--card);border-radius:9px;min-height:48px;padding:5px 2px 3px;font-size:.78em;text-align:center;cursor:pointer;border:1.5px solid transparent}
+.calcell.today{border-color:var(--accent)}
+.calcell.sel{background:var(--accent);color:#fff}
+.calcell.other{opacity:.3}
+.caldot{display:block;margin:3px auto 0;min-width:17px;width:fit-content;padding:1px 5px;border-radius:9px;background:var(--red);color:#fff;font-size:.8em;font-weight:700}
+.calnav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.calnav b{flex:1;text-align:center;text-transform:capitalize}
 .pinfos b{color:var(--text)}
 .emojirain{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:hidden}
 .emojirain span{position:absolute;top:-12vh;animation:echute linear forwards}
@@ -111,6 +120,8 @@ const fmtCA2=new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD"});
 const money=v=>fmtCA.format(v||0);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const todayISO=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+const toISO=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const addDays=(iso,n)=>{const d=parseD(iso);d.setDate(d.getDate()+n);return toISO(d);};
 const parseD=s=>{if(!s)return null;const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c);};
 const fmtDate=s=>{const d=parseD(s);return d?d.toLocaleDateString("fr-CA",{day:"numeric",month:"short",year:"numeric"}):"—";};
 const daysBetween=(a,b)=>Math.round((parseD(b)-parseD(a))/864e5);
@@ -134,7 +145,7 @@ function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 const getP=id=>state.prospects.find(p=>p.id===id);
 
 function newProspect(){return{id:uid(),prenom:"",nom:"",societe:"",tel:"",email:"",notes:"",produits:[],prime:0,montantPlace:0,
-  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null,historique:[],dateRdv:null};}
+  statut:"a_contacter",dateCreation:todayISO(),dernierContact:null,prochaineRelance:null,relances:0,autoPerdu:true,dateGain:null,historique:[],dateRdv:null,heureRelance:null};}
 
 /* ================= Logique métier ================= */
 const HICON={appel:"📞",sms:"💬",email:"✉️",relance:"🔁",contact:"✅",statut:"🏷️",rdv:"📆",note:"📝"};
@@ -255,6 +266,8 @@ function importJSON(file){
 }
 document.getElementById("importFile").addEventListener("change",e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value="";});
 
+const hIcs=p=>{const[h,m]=(p.heureRelance||"09:00").split(":");return String(h).padStart(2,"0")+m;};
+const hIcsFin=p=>{const[h,m]=(p.heureRelance||"09:00").split(":");const d=new Date(2000,0,1,+h,+m+30);return String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0");};
 function icsRelance(p){
   const d=p.prochaineRelance;if(!d)return;
   const dt=d.replace(/-/g,"");
@@ -262,7 +275,7 @@ function icsRelance(p){
   const t=s=>s.replace(/([\\;,])/g,"\\$1");
   const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//csf-prospect//FR","BEGIN:VEVENT",
     "UID:"+p.id+"-"+dt+"@csf-prospect","DTSTAMP:"+stamp,
-    "DTSTART:"+dt+"T090000","DTEND:"+dt+"T093000",
+    "DTSTART:"+dt+"T"+hIcs(p)+"00","DTEND:"+dt+"T"+hIcsFin(p)+"00",
     "SUMMARY:"+t("Relance : "+fullName(p)+" ("+(p.relances||0)+"/3)"),
     "DESCRIPTION:"+t("Prospect csf-prospect — "+(p.societe||"")+" — "+(p.tel||"")+" — prime estimée "+money(p.prime)),
     "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Relance","TRIGGER:-P1D","END:VALARM",
@@ -292,15 +305,16 @@ function icsRdv(p){
 }
 /* ================= Router ================= */
 let route={view:"list",id:null,edit:null};
-let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false};
-function go(view,id){route={view,id:id||null};window.scrollTo(0,0);render();}
+let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false,agDate:todayISO(),agMode:"jour"};
+function go(view,id){if(view==="agenda"&&route.view!=="agenda"){ui.agDate=todayISO();ui.agMode="jour";}route={view,id:id||null};window.scrollTo(0,0);render();}
 const TABS=[
   {id:"list",lbl:"Prospects",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.3c2.8.2 4.8 1.7 5.5 4.7"/></svg>'},
+  {id:"agenda",lbl:"Agenda",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg>'},
   {id:"dash",lbl:"Tableau de bord",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7.5" height="9" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.5"/><rect x="13.5" y="12" width="7.5" height="9" rx="1.5"/><rect x="3" y="15.5" width="7.5" height="5.5" rx="1.5"/></svg>'},
   {id:"ventes",lbl:"Ventes",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>'}
 ];
 function renderTabbar(){
-  const cur=route.view==="dash"?"dash":route.view==="ventes"?"ventes":"list";
+  const cur=route.view==="dash"?"dash":route.view==="ventes"?"ventes":route.view==="agenda"?"agenda":"list";
   document.getElementById("tabbar").innerHTML=TABS.map(t=>
     `<button class="${cur===t.id?"on":""}" onclick="go('${t.id}')">${t.icon}<span>${t.lbl}</span></button>`).join("");
 }
@@ -334,6 +348,8 @@ function pItem(p,due){
     </div>
   </div>`;
 }
+function matchFiltre(p,f){return f==="tous"?true:f==="en_cours"?EN_COURS.includes(p.statut):p.statut===f;}
+function goFiltre(f){ui.filtre=f;ui.search="";go("list");}
 function matchSearch(p,q){
   if(!q)return true;q=q.toLowerCase();
   return fullName(p).toLowerCase().includes(q)||(p.societe||"").toLowerCase().includes(q)
@@ -341,7 +357,7 @@ function matchSearch(p,q){
 }
 function viewList(){
   const q=ui.search,f=ui.filtre;
-  const chips=[["tous","Tous"],...Object.entries(STATUTS).map(([k,v])=>[k,v.lbl])];
+  const chips=[["tous","Tous"],["en_cours","En cours"],...Object.entries(STATUTS).map(([k,v])=>[k,v.lbl])];
   return `<h1>Prospects</h1>
     <input type="search" placeholder="Rechercher nom, société ou produit…" value="${esc(q)}"
       oninput="ui.search=this.value;refreshList()">
@@ -352,7 +368,7 @@ function viewList(){
 }
 function listZone(){
   const q=ui.search,f=ui.filtre;
-  const match=p=>matchSearch(p,q)&&(f==="tous"||p.statut===f);
+  const match=p=>matchSearch(p,q)&&matchFiltre(p,f);
   const dues=state.prospects.filter(relanceDue).filter(match)
     .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
   const dueIds=new Set(dues.map(p=>p.id));
@@ -458,8 +474,12 @@ function viewDetail(){
     <div class="kv"><span class="k">Compteur de relances</span>
       <span style="font-weight:700;color:${p.relances>=2?"var(--orange)":"inherit"}">${p.relances||0} / 3</span></div>
     ${p.relances>=2&&EN_COURS.includes(p.statut)?`<div class="warn">⚠️ ${p.relances>=3?"3 relances effectuées.":"Encore "+(3-p.relances)+" relance avant le passage automatique en « Perdu »"+(p.autoPerdu?".":" (désactivé).")}</div>`:""}
-    <label class="field" style="margin-top:10px"><span class="lbl">Prochaine relance planifiée</span>
-      <input type="date" value="${p.prochaineRelance||""}" onchange="getP('${p.id}').prochaineRelance=this.value||null;save();render()"></label>
+    <div class="row" style="margin-top:10px">
+      <label class="field grow"><span class="lbl">Prochaine relance planifiée</span>
+        <input type="date" value="${p.prochaineRelance||""}" onchange="getP('${p.id}').prochaineRelance=this.value||null;save();render()"></label>
+      <label class="field" style="max-width:118px"><span class="lbl">Heure</span>
+        <input type="time" value="${p.heureRelance||""}" onchange="getP('${p.id}').heureRelance=this.value||null;save()"></label>
+    </div>
     ${EN_COURS.includes(p.statut)?`<button style="width:100%;background:var(--orange)" onclick="faireRelance(getP('${p.id}'));render()">✓ Relance effectuée aujourd'hui</button>`:""}
     <div class="row" style="margin-top:9px">
       ${p.prochaineRelance?`<button class="sec small grow" onclick="icsRelance(getP('${p.id}'))">📅 Ajouter au Calendrier (.ics)</button>`:""}
@@ -514,38 +534,38 @@ function viewDash(){
   const total=state.prospects.length||1;
   const rep=Object.entries(STATUTS).map(([k,v])=>{
     const n=state.prospects.filter(p=>p.statut===k).length;
-    return `<div class="kv"><span class="k">${v.lbl}</span>
+    return `<div class="kv" style="cursor:pointer" onclick="goFiltre('${k}')"><span class="k">${v.lbl} ›</span>
       <span class="row" style="gap:8px"><span style="width:90px" class="progress"><div style="width:${Math.round(n/total*100)}%;background:${v.color}"></div></span><b style="min-width:20px;text-align:right">${n}</b></span></div>`;
   }).join("");
   const actifs=state.objectifs.filter(o=>!o.termine),finis=state.objectifs.filter(o=>o.termine);
   return `<h1>Tableau de bord</h1>
   <h2>Primes mensuelles</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0"><div class="muted">Gagnées · ${s.nCl} client${s.nCl>1?"s":""}</div><div class="big" style="color:var(--green)">${money(s.gagne)}</div></div>
-    <div class="card" style="margin:0"><div class="muted">Potentielles · ${s.nEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.pot)}</div></div>
-    <div class="card" style="margin:0"><div class="muted">Perdues · ${s.nPe} perdu${s.nPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.perdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Gagnées · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.gagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentielles · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.pot)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Perdues · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.perdu)}</div></div>
     <div class="card" style="margin:0"><div class="muted">Taux de conversion</div><div class="big" style="color:${tauxColor}">${s.taux===null?"—":s.taux+" %"}</div>
       <div class="muted" style="font-size:.75em">${s.delai!==null?"Délai moyen : "+s.delai+" j":"gagnés / décidés"}</div></div>
   </div>
   <h2>Épargne — montants placés</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0"><div class="muted">Placés · ${s.nPlCl} client${s.nPlCl>1?"s":""}</div><div class="big" style="color:var(--purple)">${money(s.plGagne)}</div></div>
-    <div class="card" style="margin:0"><div class="muted">Potentiels · ${s.nPlEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.plPot)}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Perdus · ${s.nPlPe} perdu${s.nPlPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.plPerdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Placés · ${s.nPlCl} client${s.nPlCl>1?"s":""} ›</div><div class="big" style="color:var(--purple)">${money(s.plGagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentiels · ${s.nPlEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.plPot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Perdus · ${s.nPlPe} perdu${s.nPlPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.plPerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">L'épargne n'a pas de prime : on suit ici les montants placés.</div>
   <h2>Commissions</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0"><div class="muted">Touchées · ${s.nCl} client${s.nCl>1?"s":""}</div><div class="big" style="color:var(--green)">${money(s.comGagne)}</div></div>
-    <div class="card" style="margin:0"><div class="muted">Potentielles · ${s.nEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.comPot)}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Manquées · ${s.nPe} perdu${s.nPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.comPerdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Touchées · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.comGagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentielles · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.comPot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Manquées · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.comPerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">Assurance : prime ÷ 0,09 ÷ 2 + 175 % · Épargne : 4 % du montant placé.</div>
   <h2>Crédits de vente</h2>
   <div class="statgrid">
-    <div class="card" style="margin:0"><div class="muted">Touchés · ${s.nCl} client${s.nCl>1?"s":""}</div><div class="big" style="color:var(--green)">${money(s.creGagne)}</div></div>
-    <div class="card" style="margin:0"><div class="muted">Potentiels · ${s.nEc} en cours</div><div class="big" style="color:var(--accent)">${money(s.crePot)}</div></div>
-    <div class="card" style="margin:0;grid-column:1/-1"><div class="muted">Manqués · ${s.nPe} perdu${s.nPe>1?"s":""}</div><div class="big" style="color:var(--red)">${money(s.crePerdu)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('client')"><div class="muted">Touchés · ${s.nCl} client${s.nCl>1?"s":""} ›</div><div class="big" style="color:var(--green)">${money(s.creGagne)}</div></div>
+    <div class="card" style="margin:0;cursor:pointer" onclick="goFiltre('en_cours')"><div class="muted">Potentiels · ${s.nEc} en cours ›</div><div class="big" style="color:var(--accent)">${money(s.crePot)}</div></div>
+    <div class="card" style="margin:0;grid-column:1/-1;cursor:pointer" onclick="goFiltre('perdu')"><div class="muted">Manqués · ${s.nPe} perdu${s.nPe>1?"s":""} ›</div><div class="big" style="color:var(--red)">${money(s.crePerdu)}</div></div>
   </div>
   <div class="muted" style="font-size:.78em;margin:-2px 2px 0">Assurance : prime ÷ 0,09 ÷ 2 × 2,5 · Épargne : 2,5 % du montant placé.</div>
   <h2>Répartition des prospects</h2>
@@ -706,11 +726,98 @@ function viewVentes(){
   ${totN===0?`<div class="empty">Aucune vente sur la période.<br>Les ventes s'enregistrent automatiquement quand un prospect passe au statut « Client ».</div>`:""}`;
 }
 
+/* ================= Vue : agenda ================= */
+function suivisDate(iso){
+  const ev=[];
+  for(const p of state.prospects){
+    if(p.prochaineRelance===iso&&EN_COURS.includes(p.statut))ev.push({p,heure:p.heureRelance||"",type:"relance"});
+    if(p.dateRdv&&p.dateRdv.slice(0,10)===iso)ev.push({p,heure:p.dateRdv.slice(11,16),type:"rdv"});
+  }
+  ev.sort((a,b)=>(a.heure||"99:99")<(b.heure||"99:99")?-1:1);
+  return ev;
+}
+function evItem(e){
+  const p=e.p;
+  return `<div class="pitem" onclick="go('detail','${p.id}')">
+    <div style="min-width:52px;font-weight:700;font-size:.95em;color:${e.type==="rdv"?"var(--purple)":"var(--orange)"}">${e.heure||"journée"}</div>
+    <div class="grow">
+      <div style="font-weight:600">${e.type==="rdv"?"📆 RDV":"🔁 Relance"} — ${esc(fullName(p))}</div>
+      <div class="muted">${[p.societe&&esc(p.societe),p.tel&&"📞 "+esc(p.tel),e.type==="relance"?(p.relances||0)+"/3 relances":null].filter(Boolean).join(" · ")}</div>
+    </div>
+    ${badge(p.statut)}
+  </div>`;
+}
+const JOURS=["lun.","mar.","mer.","jeu.","ven.","sam.","dim."];
+function mondayOf(iso){const d=parseD(iso);const wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);return toISO(d);}
+function viewAgenda(){
+  const mode=ui.agMode,d0=ui.agDate;
+  const modeLbls={jour:"Jour",semaine:"Semaine",mois:"Mois"};
+  let nav="",body="";
+  if(mode==="jour"){
+    const lbl=parseD(d0).toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"});
+    nav=navBar(lbl,()=>-1,()=>1,"j");
+    const evs=suivisDate(d0);
+    let h="";
+    if(d0===todayISO()){
+      const late=state.prospects.filter(p=>p.prochaineRelance&&p.prochaineRelance<d0&&EN_COURS.includes(p.statut))
+        .sort((a,b)=>a.prochaineRelance<b.prochaineRelance?-1:1);
+      if(late.length)h+=`<h2 style="color:var(--red)">⚠️ En retard (${late.length})</h2><div class="plist">${late.map(p=>evItem({p,heure:fmtDate(p.prochaineRelance),type:"relance"})).join("")}</div>`;
+    }
+    h+=`<h2>Suivis du jour (${evs.length})</h2>`;
+    h+=evs.length?`<div class="plist">${evs.map(evItem).join("")}</div>`
+      :`<div class="empty">Aucun suivi prévu ce jour.${d0===todayISO()?"<br>Profitez-en pour prospecter ! 💪":""}</div>`;
+    body=h;
+  }else if(mode==="semaine"){
+    const lun=mondayOf(d0);
+    const lbl="Semaine du "+fmtDate(lun);
+    nav=navBar(lbl,()=>-7,()=>7,"j");
+    let h="",tot=0;
+    for(let i=0;i<7;i++){
+      const iso=addDays(lun,i),evs=suivisDate(iso);tot+=evs.length;
+      if(evs.length)h+=`<h2 style="${iso===todayISO()?"color:var(--accent)":""}">${parseD(iso).toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"short"})}${iso===todayISO()?" — aujourd'hui":""}</h2>
+        <div class="plist">${evs.map(evItem).join("")}</div>`;
+    }
+    body=tot?h:`<div class="empty">Aucun suivi prévu cette semaine.</div>`;
+  }else{
+    const d=parseD(d0);
+    const lbl=d.toLocaleDateString("fr-CA",{month:"long",year:"numeric"});
+    nav=navBar(lbl,()=>"m-",()=>"m+","m");
+    const first=new Date(d.getFullYear(),d.getMonth(),1);
+    const start=mondayOf(toISO(first));
+    let cells=JOURS.map(j=>`<div class="calhead">${j}</div>`).join("");
+    for(let i=0;i<42;i++){
+      const iso=addDays(start,i);const dd=parseD(iso);
+      if(i>=35&&dd.getMonth()!==d.getMonth())break;
+      const n=suivisDate(iso).length;
+      const cls=["calcell",dd.getMonth()!==d.getMonth()?"other":"",iso===todayISO()?"today":"",iso===d0?"sel":""].join(" ");
+      cells+=`<div class="${cls}" onclick="ui.agDate='${iso}';ui.agMode='jour';render()">${dd.getDate()}${n?`<span class="caldot">${n}</span>`:""}</div>`;
+    }
+    body=`<div class="calgrid">${cells}</div>
+      <div class="muted" style="margin-top:10px;font-size:.8em">Touchez un jour pour voir ses suivis. Le chiffre rouge = nombre de suivis (relances + RDV).</div>`;
+  }
+  return `<h1>Agenda</h1>
+  <div class="seg">${Object.entries(modeLbls).map(([k,l])=>
+    `<button class="${mode===k?"on":""}" onclick="ui.agMode='${k}';render()">${l}</button>`).join("")}</div>
+  ${nav}
+  ${body}`;
+}
+function navBar(lbl,fPrev,fNext,unit){
+  const prev=unit==="m"?"agMois(-1)":"ui.agDate=addDays(ui.agDate,"+fPrev()+");render()";
+  const next=unit==="m"?"agMois(1)":"ui.agDate=addDays(ui.agDate,"+fNext()+");render()";
+  return `<div class="calnav">
+    <button class="sec small" onclick="${prev}">‹</button>
+    <b>${lbl}</b>
+    <button class="sec small" onclick="${next}">›</button>
+    <button class="ghost small" onclick="ui.agDate=todayISO();render()">Aujourd'hui</button>
+  </div>`;
+}
+function agMois(n){const d=parseD(ui.agDate);d.setDate(1);d.setMonth(d.getMonth()+n);ui.agDate=toISO(d);render();}
+
 /* ================= Rendu ================= */
 function render(){
   const v=route.view;
   document.getElementById("app").innerHTML=
-    v==="detail"?viewDetail():v==="form"?viewForm():v==="dash"?viewDash():v==="ventes"?viewVentes():viewList();
+    v==="detail"?viewDetail():v==="form"?viewForm():v==="dash"?viewDash():v==="ventes"?viewVentes():v==="agenda"?viewAgenda():viewList();
   renderTabbar();
 }
 load();
