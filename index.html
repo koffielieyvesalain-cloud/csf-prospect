@@ -887,9 +887,19 @@ function venteSheet(p){
         <h2>Montants réellement obtenus</h2>
         <div class="card">
           <label class="field"><span class="lbl">Prime mensuelle obtenue ($ CA) — estimée : ${money(p.prime)}</span>
-            <input name="vprime" type="number" inputmode="decimal" min="0" step="1" value="${p.prime||""}" placeholder="0"></label>
+            <input name="vprime" type="number" inputmode="decimal" min="0" step="1" value="${p.prime||""}" placeholder="0"
+              oninput="this.form.vrestprime.value=Math.max(0,${+p.prime||0}-(+this.value||0))"></label>
           <label class="field" style="margin-bottom:0"><span class="lbl">Montant placé obtenu — épargne ($ CA) — estimé : ${money(p.montantPlace)}</span>
-            <input name="vplace" type="number" inputmode="decimal" min="0" step="1" value="${p.montantPlace||""}" placeholder="0"></label>
+            <input name="vplace" type="number" inputmode="decimal" min="0" step="1" value="${p.montantPlace||""}" placeholder="0"
+              oninput="this.form.vrestplace.value=Math.max(0,${+p.montantPlace||0}-(+this.value||0))"></label>
+        </div>
+        <h2>Potentiel restant en prospection</h2>
+        <div class="card">
+          <div class="muted" style="margin-bottom:10px">Ce qui reste en discussion. S'il y a un montant ou un produit non coché, la fiche prospect restera active avec ce potentiel — rien ne disparaît.</div>
+          <label class="field"><span class="lbl">Prime encore en discussion ($ CA/mois)</span>
+            <input name="vrestprime" type="number" inputmode="decimal" min="0" step="1" value="0"></label>
+          <label class="field" style="margin-bottom:0"><span class="lbl">Épargne encore en discussion ($ CA)</span>
+            <input name="vrestplace" type="number" inputmode="decimal" min="0" step="1" value="0"></label>
         </div>
         <div class="row" style="margin-top:6px">
           <button type="button" class="sec grow" onclick="ui.showVente=false;render()">Annuler</button>
@@ -905,7 +915,9 @@ function submitVente(e,id){
   const prime=parseFloat(f.vprime.value)||0,place=parseFloat(f.vplace.value)||0;
   if(!sel.length){alert("Cochez au moins un produit signé.");return false;}
   if(!prime&&!place){alert("Indiquez la prime ou le montant placé obtenu.");return false;}
-  const totale=!p.produits.length||sel.length>=p.produits.length;
+  const restPrime=parseFloat(f.vrestprime.value)||0,restPlace=parseFloat(f.vrestplace.value)||0;
+  const resteProds=p.produits.filter(x=>!sel.includes(x));
+  const totale=!resteProds.length&&restPrime<=0&&restPlace<=0;
   if(totale){
     p.prime=prime;p.montantPlace=place;
     logH(p,"note","✅ Vente conclue : "+sel.join(", ")+" — prime "+money(prime)+"/mois · placé "+money(place));
@@ -918,11 +930,11 @@ function submitVente(e,id){
     c.notes="Vente conclue le "+fmtDate(todayISO())+" (issue de la prospection : "+esc(fullName(p))+")";
     c.historique=[{d:new Date().toISOString(),t:"note",note:"✅ Vente partielle : "+sel.join(", ")+" — prime "+money(prime)+"/mois · placé "+money(place)}];
     state.prospects.push(c);
-    p.produits=p.produits.filter(x=>!sel.includes(x));
-    p.prime=Math.max(0,(+p.prime||0)-prime);
-    p.montantPlace=Math.max(0,(+p.montantPlace||0)-place);
+    p.produits=resteProds;
+    p.prime=restPrime;
+    p.montantPlace=restPlace;
     p.dernierContact=todayISO();
-    logH(p,"note","💰 Vente partielle signée ("+sel.join(", ")+") — reste à convertir : "+(p.produits.join(", ")||"ajuster les produits"));
+    logH(p,"note","💰 Vente partielle signée ("+sel.join(", ")+") — potentiel restant : "+(resteProds.join(", ")||"montants")+" · prime "+money(restPrime)+" · épargne "+money(restPlace));
     fete("win");
     save();
   }
