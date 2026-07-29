@@ -346,7 +346,7 @@ function icsRdv(p){
 }
 /* ================= Router ================= */
 let route={view:"agenda",id:null,edit:null};
-let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false,agDate:todayISO(),agMode:"jour",catFiltre:null};
+let ui={search:"",filtre:"tous",vMode:"mois",vPer:{semaine:12,mois:12,annee:5},vMetric:"montant",showObjForm:false,agDate:todayISO(),agMode:"jour",catFiltre:null,showVente:false};
 function go(view,id){if(view==="agenda"&&route.view!=="agenda"){ui.agDate=todayISO();ui.agMode="jour";}route={view,id:id||null};window.scrollTo(0,0);render();}
 const TABS=[
   {id:"agenda",lbl:"Agenda",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg>'},
@@ -522,7 +522,8 @@ function viewDetail(){
       ${Object.entries(STATUTS).map(([k,v])=>`<option value="${k}" ${p.statut===k?"selected":""}>${v.lbl}</option>`).join("")}
     </select>
     ${p.statut==="client"&&p.dateGain?`<div class="muted" style="margin-top:8px">✅ Vente conclue le ${fmtDate(p.dateGain)}</div>`:""}
-    ${EN_COURS.includes(p.statut)?`<button class="sec small" style="margin-top:10px;width:100%" onclick="contactFait(getP('${p.id}'));render()">J'ai contacté ce prospect aujourd'hui</button>`:""}
+    ${EN_COURS.includes(p.statut)?`<button style="margin-top:10px;width:100%;background:linear-gradient(135deg,var(--green),var(--green2));color:#fff" onclick="ui.showVente=true;render()">💰 Conclure une vente (totale ou partielle)</button>
+    <button class="sec small" style="margin-top:9px;width:100%" onclick="contactFait(getP('${p.id}'));render()">J'ai contacté ce prospect aujourd'hui</button>`:""}
   </div>
 
   <h2>Relances — règle des 3 relances</h2>
@@ -581,7 +582,8 @@ function viewDetail(){
   <div class="row" style="margin-top:14px">
     <button class="sec grow" onclick="route={view:'form',id:'${p.id}'};render();window.scrollTo(0,0)">Modifier</button>
     <button class="danger grow" onclick="if(confirm('Supprimer définitivement ${esc(fullName(p)).replace(/'/g,"\\'")} ?')){state.prospects=state.prospects.filter(x=>x.id!=='${p.id}');save();go('list')}">Supprimer</button>
-  </div>`;
+  </div>
+  ${ui.showVente?venteSheet(p):""}`;
 }
 
 /* ================= Vue : tableau de bord ================= */
@@ -870,6 +872,63 @@ function navBar(lbl,fPrev,fNext,unit){
   </div>`;
 }
 function agMois(n){const d=parseD(ui.agDate);d.setDate(1);d.setMonth(d.getMonth()+n);ui.agDate=toISO(d);render();}
+
+/* ================= Vente partielle ================= */
+function venteSheet(p){
+  const prods=p.produits.length?p.produits:PRODUITS;
+  return `<div class="modal" onclick="if(event.target===this){ui.showVente=false;render()}">
+    <div class="sheet">
+      <h1 style="font-size:1.3em">💰 Conclure une vente</h1>
+      <div class="muted" style="margin:-6px 0 12px">Cochez seulement ce qui a été signé. Le reste restera en prospection sur la fiche actuelle.</div>
+      <form onsubmit="return submitVente(event,'${p.id}')">
+        <h2 style="margin-top:0">Produits signés</h2>
+        <div class="card checkgrid">${prods.map(pr=>
+          `<label><input type="checkbox" name="vprod" value="${esc(pr)}" checked> ${esc(pr)}</label>`).join("")}</div>
+        <h2>Montants réellement obtenus</h2>
+        <div class="card">
+          <label class="field"><span class="lbl">Prime mensuelle obtenue ($ CA) — estimée : ${money(p.prime)}</span>
+            <input name="vprime" type="number" inputmode="decimal" min="0" step="1" value="${p.prime||""}" placeholder="0"></label>
+          <label class="field" style="margin-bottom:0"><span class="lbl">Montant placé obtenu — épargne ($ CA) — estimé : ${money(p.montantPlace)}</span>
+            <input name="vplace" type="number" inputmode="decimal" min="0" step="1" value="${p.montantPlace||""}" placeholder="0"></label>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button type="button" class="sec grow" onclick="ui.showVente=false;render()">Annuler</button>
+          <button type="submit" class="grow" style="background:linear-gradient(135deg,var(--green),var(--green2));color:#fff">Valider la vente</button>
+        </div>
+      </form>
+    </div></div>`;
+}
+function submitVente(e,id){
+  e.preventDefault();
+  const p=getP(id),f=e.target;
+  const sel=[...f.querySelectorAll("input[name=vprod]:checked")].map(c=>c.value);
+  const prime=parseFloat(f.vprime.value)||0,place=parseFloat(f.vplace.value)||0;
+  if(!sel.length){alert("Cochez au moins un produit signé.");return false;}
+  if(!prime&&!place){alert("Indiquez la prime ou le montant placé obtenu.");return false;}
+  const totale=!p.produits.length||sel.length>=p.produits.length;
+  if(totale){
+    p.prime=prime;p.montantPlace=place;
+    logH(p,"note","✅ Vente conclue : "+sel.join(", ")+" — prime "+money(prime)+"/mois · placé "+money(place));
+    setStatut(p,"client");
+  }else{
+    const c=newProspect();
+    ["prenom","nom","societe","tel","email"].forEach(k=>c[k]=p[k]);
+    c.produits=sel;c.prime=prime;c.montantPlace=place;
+    c.statut="client";c.dateGain=todayISO();c.dernierContact=todayISO();
+    c.notes="Vente conclue le "+fmtDate(todayISO())+" (issue de la prospection : "+esc(fullName(p))+")";
+    c.historique=[{d:new Date().toISOString(),t:"note",note:"✅ Vente partielle : "+sel.join(", ")+" — prime "+money(prime)+"/mois · placé "+money(place)}];
+    state.prospects.push(c);
+    p.produits=p.produits.filter(x=>!sel.includes(x));
+    p.prime=Math.max(0,(+p.prime||0)-prime);
+    p.montantPlace=Math.max(0,(+p.montantPlace||0)-place);
+    p.dernierContact=todayISO();
+    logH(p,"note","💰 Vente partielle signée ("+sel.join(", ")+") — reste à convertir : "+(p.produits.join(", ")||"ajuster les produits"));
+    fete("win");
+    save();
+  }
+  ui.showVente=false;render();
+  return false;
+}
 
 /* ================= Rendu ================= */
 function render(){
